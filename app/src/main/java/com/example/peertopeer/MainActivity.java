@@ -3,6 +3,7 @@ package com.example.peertopeer;
 import android.app.Activity;
 import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.Intent;
 import android.content.IntentFilter;
 import android.net.wifi.p2p.WifiP2pConfig;
 import android.net.wifi.p2p.WifiP2pDevice;
@@ -21,12 +22,13 @@ import android.widget.Toast;
 
 import com.example.peertopeer.DeviceListFragment.DeviceActionListener;
 
-public class MainActivity extends Activity implements DeviceActionListener{
+public class MainActivity extends Activity implements ChannelListener, DeviceActionListener{
 
     WifiP2pManager mManager;
     Channel mChannel;
     private BroadcastReceiver mReceiver;
     private boolean isWifiP2pEnabled = false;
+    private boolean retryChannel = false;
 
     IntentFilter mIntentFilter;
 
@@ -91,6 +93,62 @@ public class MainActivity extends Activity implements DeviceActionListener{
     }
 
     @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        MenuInflater inflater = getMenuInflater();
+        inflater.inflate(R.menu.action_items, menu);
+        return true;
+    }
+
+    /*
+     * (non-Javadoc)
+     * @see android.app.Activity#onOptionsItemSelected(android.view.MenuItem)
+     */
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        switch (item.getItemId()) {
+            case R.id.atn_direct_enable:
+                if (mManager != null && mChannel != null) {
+
+                    // Since this is the system wireless settings activity, it's
+                    // not going to send us a result. We will be notified by
+                    // WiFiDeviceBroadcastReceiver instead.
+
+                    startActivity(new Intent(Settings.ACTION_WIRELESS_SETTINGS));
+                } else {
+                    Log.e("p2p_log", "channel or manager is null");
+                }
+                return true;
+
+            case R.id.atn_direct_discover:
+                if (!isWifiP2pEnabled) {
+                    Toast.makeText(MainActivity.this, R.string.p2p_off_warning,
+                            Toast.LENGTH_SHORT).show();
+                    return true;
+                }
+                final DeviceListFragment fragment = (DeviceListFragment) getFragmentManager()
+                        .findFragmentById(R.id.frag_list);
+                fragment.onInitiateDiscovery();
+                mManager.discoverPeers(mChannel, new WifiP2pManager.ActionListener() {
+
+                    @Override
+                    public void onSuccess() {
+                        Toast.makeText(MainActivity.this, "Discovery Initiated",
+                                Toast.LENGTH_SHORT).show();
+                    }
+
+                    @Override
+                    public void onFailure(int reasonCode) {
+                        Toast.makeText(MainActivity.this, "Discovery Failed : " + reasonCode,
+                                Toast.LENGTH_SHORT).show();
+                    }
+                });
+                return true;
+            default:
+                return super.onOptionsItemSelected(item);
+        }
+    }
+
+    @Override
     public void connect(WifiP2pConfig config) {
         mManager.connect(mChannel, config, new ActionListener() {
 
@@ -127,6 +185,21 @@ public class MainActivity extends Activity implements DeviceActionListener{
             }
 
         });
+    }
+
+    @Override
+    public void onChannelDisconnected() {
+        // we will try once more
+        if (mManager != null && !retryChannel) {
+            Toast.makeText(this, "Channel lost. Trying again", Toast.LENGTH_LONG).show();
+            resetData();
+            retryChannel = true;
+            mManager.initialize(this, getMainLooper(), this);
+        } else {
+            Toast.makeText(this,
+                    "Severe! Channel is probably lost premanently. Try Disable/Re-Enable P2P.",
+                    Toast.LENGTH_LONG).show();
+        }
     }
 
     @Override

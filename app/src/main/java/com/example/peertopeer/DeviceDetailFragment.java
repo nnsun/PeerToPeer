@@ -99,7 +99,19 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 
         // User has picked an image. Transfer it to group owner i.e peer using
         // FileTransferService.
-        // Does nothing right now because is unecessary to get them to connect
+        Uri uri = data.getData();
+        TextView statusText = (TextView) mContentView.findViewById(R.id.status_text);
+        statusText.setText("Sending: " + uri);
+        Log.d("p2p_log", "Intent----------- " + uri);
+        Intent serviceIntent = new Intent(getActivity(), TransferData.class);
+        serviceIntent.setAction(TransferData.ACTION_SEND_FILE);
+        serviceIntent.putExtra(TransferData.EXTRAS_FILE_PATH, uri.toString());
+        serviceIntent.putExtra(TransferData.EXTRAS_GROUP_OWNER_ADDRESS,
+                info.groupOwnerAddress.getHostAddress());
+        serviceIntent.putExtra(TransferData.EXTRAS_GROUP_OWNER_PORT, 8988);
+        Log.d("p2p_log", "!!!!!!!!!!!Starting Service!!!!!!!!!!");
+        getActivity().startService(serviceIntent);
+        Log.d("p2p_log", "!!!!!!!!!!!Service Started, GAD DAMIT!!!!!!!!!!");
     }
 
     @Override
@@ -195,13 +207,64 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                 Log.d("p2p_log", "Server: Socket opened");
                 Socket client = serverSocket.accept();
                 Log.d("p2p_log", "Server: connection done");
-                return "It Works!";
+                final File f = new File(Environment.getExternalStorageDirectory() + "/"
+                        + context.getPackageName() + "/wifip2pshared-" + System.currentTimeMillis()
+                        + ".jpg");
+
+                File dirs = new File(f.getParent());
+                if (!dirs.exists())
+                    dirs.mkdirs();
+                f.createNewFile();
+
+                Log.d("p2p_log", "server: copying files " + f.toString());
+                InputStream inputstream = client.getInputStream();
+                copyFile(inputstream, new FileOutputStream(f));
+                serverSocket.close();
+                return f.getAbsolutePath();
             } catch (IOException e) {
                 Log.e("p2p_log", e.getMessage());
                 return null;
             }
         }
 
+        @Override
+        protected void onPostExecute(String result) {
+            if (result != null) {
+                statusText.setText("File copied - " + result);
+                Intent intent = new Intent();
+                intent.setAction(android.content.Intent.ACTION_VIEW);
+                intent.setDataAndType(Uri.parse("file://" + result), "image/*");
+                context.startActivity(intent);
+            }
+
+        }
+
+        /*
+         * (non-Javadoc)
+         * @see android.os.AsyncTask#onPreExecute()
+         */
+        @Override
+        protected void onPreExecute() {
+            statusText.setText("Opening a server socket");
+        }
+
+    }
+
+    public static boolean copyFile(InputStream inputStream, OutputStream out) {
+        byte buf[] = new byte[1024];
+        int len;
+        try {
+            while ((len = inputStream.read(buf)) != -1) {
+                out.write(buf, 0, len);
+
+            }
+            out.close();
+            inputStream.close();
+        } catch (IOException e) {
+            Log.d("p2p_log", e.toString());
+            return false;
+        }
+        return true;
     }
 
 }

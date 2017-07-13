@@ -3,7 +3,6 @@ package com.example.peertopeer;
 import android.app.ListFragment;
 import android.net.wifi.p2p.WifiP2pManager;
 
-import android.app.ListFragment;
 import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.DialogInterface;
