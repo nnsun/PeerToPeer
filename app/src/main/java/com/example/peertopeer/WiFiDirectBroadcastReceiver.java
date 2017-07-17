@@ -3,18 +3,18 @@ package com.example.peertopeer;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.net.wifi.p2p.WifiP2pConfig;
 import android.net.wifi.p2p.WifiP2pDeviceList;
 import android.net.wifi.p2p.WifiP2pInfo;
 import android.net.wifi.p2p.WifiP2pManager;
-import android.net.wifi.p2p.WifiP2pManager.ActionListener;
 import android.net.wifi.p2p.WifiP2pManager.Channel;
 import android.net.wifi.p2p.WifiP2pManager.PeerListListener;
-import android.net.wifi.p2p.WifiP2pDevice;
+import android.os.AsyncTask;
 import android.util.Log;
 
+import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.ServerSocket;
 import java.net.Socket;
 
 
@@ -22,10 +22,13 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
 
     private WifiP2pManager mManager;
     private Channel mChannel;
-    private MainActivity mActivity;
+    private PeersListActivity mActivity;
 
-    public WiFiDirectBroadcastReceiver(WifiP2pManager manager, Channel channel, MainActivity activity) {
+    public PeerListListener mPeerListListener;
+
+    public WiFiDirectBroadcastReceiver(WifiP2pManager manager, Channel channel, PeersListActivity activity) {
         super();
+
         mManager = manager;
         mChannel = channel;
         mActivity = activity;
@@ -41,6 +44,15 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
                 Log.d("p2p_log", "Find peers failed. Reason: " + reasonCode);
             }
         });
+
+        mPeerListListener = new PeerListListener() {
+            @Override
+            public void onPeersAvailable(WifiP2pDeviceList peers) {
+                Log.d("p2p_log", "Number of peers found: " + Integer.toString(peers.getDeviceList().size()));
+
+                mActivity.mFragment.updateUI(peers);
+            }
+        };
     }
 
     @Override
@@ -50,87 +62,94 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
         if (WifiP2pManager.WIFI_P2P_STATE_CHANGED_ACTION.equals(action)) {
             int state = intent.getIntExtra(WifiP2pManager.EXTRA_WIFI_STATE, -1);
 
-            PeerListListener myPeerListListener = connectToPeer();
-
             if (state == WifiP2pManager.WIFI_P2P_STATE_ENABLED) {
                 // request available peers from the wifi p2p manager. This is an
                 // asynchronous call and the calling activity is notified with a
                 // callback on PeerListListener.onPeersAvailable()
-                if (mManager != null) {
-                    mManager.requestPeers(mChannel, myPeerListListener);
-                }
+
+                mManager.requestPeers(mChannel, mPeerListListener);
+
             }
             else {
                 // Wi-Fi P2P is not enabled
                 Log.d("p2p_log", "Wi-Fi P2P is not enabled.");
-                System.exit(-1);
             }
+
         }
         else if (WifiP2pManager.WIFI_P2P_PEERS_CHANGED_ACTION.equals(action)) {
             Log.d("p2p_log", "P2P peers changed");
-            PeerListListener myPeerListListener = connectToPeer();
+
+            mManager.requestPeers(mChannel, mPeerListListener);
 
         }
         else if (WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION.equals(action)) {
             Log.d("p2p_log", "P2P connection changed");
-            PeerListListener myPeerListListener = connectToPeer();
+
+            mManager.requestPeers(mChannel, mPeerListListener);
+
+            mManager.requestConnectionInfo(mChannel, new WifiP2pManager.ConnectionInfoListener() {
+                @Override
+                public void onConnectionInfoAvailable(final WifiP2pInfo wifiP2pInfo) {
+                    if (wifiP2pInfo.groupFormed) {
+                        if (wifiP2pInfo.isGroupOwner) {
+                            AsyncTask groupOwner = new AsyncTask() {
+
+                                @Override
+                                protected Object doInBackground(Object[] objects) {
+                                    try {
+                                        Log.d("p2p_log", "Trying to create sockets");
+
+                                        ServerSocket serverSocket = new ServerSocket(6003);
+                                        Socket clientSocket = serverSocket.accept();
+
+                                        Log.d("p2p_log", "Sockets created");
+                                    }
+                                    catch (IOException e) {
+                                        Log.d("p2p_log", "IOException");
+                                    }
+                                    return null;
+                                }
+
+                            };
+
+                            groupOwner.execute();
+                        }
+
+                        else {
+                            AsyncTask groupClient = new AsyncTask() {
+
+                                @Override
+                                protected Object doInBackground(Object[] objects) {
+                                    try {
+                                        Log.d("p2p_log", "Trying to connect sockets");
+                                        InetAddress address = wifiP2pInfo.groupOwnerAddress;
+                                        Socket socket = new Socket();
+                                        socket.bind(null);
+                                        socket.connect(new InetSocketAddress(address, 6003), 500);
+                                        Log.d("p2p_log", "Sockets connected!");
+
+                                    }
+                                    catch (IOException e) {
+                                        Log.d("p2p_log", "IOException");
+                                    }
+                                    return null;
+                                }
+
+                            };
+
+                            groupClient.execute();
+                        }
+                    }
+                }
+            });
+
         }
         else if (WifiP2pManager.WIFI_P2P_THIS_DEVICE_CHANGED_ACTION.equals(action)) {
             Log.d("p2p_log", "P2P device changed");
+
+            mManager.requestPeers(mChannel, mPeerListListener);
+
         }
     }
-
-    private PeerListListener connectToPeer() {
-        return new PeerListListener() {
-                    @Override
-                    public void onPeersAvailable(WifiP2pDeviceList peers) {
-                        Log.d("p2p_log", "Number of peers found: " + Integer.toString(peers.getDeviceList().size()));
-
-                        for (WifiP2pDevice peer : peers.getDeviceList()) {
-                            Log.d("p2p_log", peer.toString());
-                        }
-
-                        if (peers.getDeviceList().size() == 1) {
-                            Log.d("p2p_log", "Attempting to connect");
-
-                            WifiP2pDevice device = (WifiP2pDevice)peers.getDeviceList().toArray()[0];
-                            WifiP2pConfig config = new WifiP2pConfig();
-                            config.deviceAddress = device.deviceAddress;
-                            mManager.connect(mChannel, config, new ActionListener() {
-
-                                @Override
-                                public void onSuccess() {
-                                    Log.d("p2p_log", "Connected to device!");
-
-                                    Thread thread = new Thread(new Sockets());
-                                    thread.start();
-
-                                    mManager.requestConnectionInfo(mChannel, new WifiP2pManager.ConnectionInfoListener() {
-                                        @Override
-                                        public void onConnectionInfoAvailable(WifiP2pInfo wifiP2pInfo) {
-                                            InetAddress address = wifiP2pInfo.groupOwnerAddress;
-                                            Socket socket = new Socket();
-                                            try {
-                                                socket.bind(null);
-                                                socket.connect(new InetSocketAddress(address, 6003), 500);
-                                            }
-                                            catch(Exception e) {
-                                                Log.d("p2p_log", "Exception: " + e.getClass().getCanonicalName());
-                                            }
-                                        }
-                                    });
-                                }
-
-                                @Override
-                                public void onFailure(int reason) {
-                                    Log.d("p2p_log", "Failed to connect. Reason: " + reason);
-
-                                }
-                            });
-                        }
-                    }
-                };
-    }
-
 
 }
