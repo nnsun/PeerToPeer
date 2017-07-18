@@ -52,15 +52,10 @@ public class TransferData extends IntentService {
 
             try {
                 Log.d("p2p_log", "Opening client socket - ");
-                Toast.makeText(context, "Opening client socket...", Toast.LENGTH_SHORT).show();
                 socket.bind(null);
-                Toast.makeText(context, "Binding client socket...", Toast.LENGTH_SHORT).show();
                 socket.connect((new InetSocketAddress(host, port)), SOCKET_TIMEOUT);
 
                 Log.d("p2p_log", "Client socket - " + socket.isConnected());
-                Toast.makeText(context, "Client socket - " + socket.isConnected(),
-                        Toast.LENGTH_LONG).show();
-
                 OutputStream stream = socket.getOutputStream();
                 ContentResolver cr = context.getContentResolver();
                 InputStream is = null;

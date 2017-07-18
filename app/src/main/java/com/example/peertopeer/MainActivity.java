@@ -115,9 +115,9 @@ public class MainActivity extends Activity implements ChannelListener, DeviceAct
 
                     startActivity(new Intent(Settings.ACTION_WIRELESS_SETTINGS));
                 } else {
-                    Log.e("p2p_log", "channel or manager is null");
-                }
-                return true;
+            Log.e("p2p_log", "channel or manager is null");
+        }
+        return true;
 
             case R.id.atn_direct_discover:
                 if (!isWifiP2pEnabled) {

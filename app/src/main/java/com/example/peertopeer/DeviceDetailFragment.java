@@ -109,9 +109,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
         serviceIntent.putExtra(TransferData.EXTRAS_GROUP_OWNER_ADDRESS,
                 info.groupOwnerAddress.getHostAddress());
         serviceIntent.putExtra(TransferData.EXTRAS_GROUP_OWNER_PORT, 8988);
-        Log.d("p2p_log", "!!!!!!!!!!!Starting Service!!!!!!!!!!");
         getActivity().startService(serviceIntent);
-        Log.d("p2p_log", "!!!!!!!!!!!Service Started, GAD DAMIT!!!!!!!!!!");
     }
 
     @Override
