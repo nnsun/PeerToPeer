@@ -12,7 +12,7 @@ public class PeersListActivity extends SingleFragmentActivity {
 
     WifiP2pManager mManager;
     Channel mChannel;
-    BroadcastReceiver mReceiver;
+    WiFiDirectBroadcastReceiver mReceiver;
     IntentFilter mIntentFilter;
 
     PeersListFragment mFragment;

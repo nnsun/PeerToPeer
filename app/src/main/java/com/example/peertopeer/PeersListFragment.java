@@ -24,6 +24,7 @@ import android.widget.TextView;
 
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -35,11 +36,11 @@ public class PeersListFragment extends Fragment {
 
     private WifiP2pManager mManager;
     private WifiP2pManager.Channel mChannel;
-    private BroadcastReceiver mReceiver;
+    private WiFiDirectBroadcastReceiver mReceiver;
 
     private IntentFilter mIntentFilter;
 
-    public void setNetworkArguments(WifiP2pManager manager, Channel channel, BroadcastReceiver receiver, IntentFilter filter) {
+    public void setNetworkArguments(WifiP2pManager manager, Channel channel, WiFiDirectBroadcastReceiver receiver, IntentFilter filter) {
         mManager = manager;
         mChannel = channel;
         mReceiver = receiver;
@@ -136,20 +137,33 @@ public class PeersListFragment extends Fragment {
                 mSendButton.setOnClickListener(new View.OnClickListener() {
                     @Override
                     public void onClick(View view) {
-                        try {
+                        Socket socket;
+                        if (mReceiver.mClientSocket == null) {
+                            // the device is the group owner
+                            socket = mReceiver.mClientSockets.get(mPeer.deviceName);
 
+
+                        }
+                        else {
+                            // the device is a client
+                            socket = mReceiver.mClientSocket;
+                        }
+
+                        try {
                             byte buf[]  = new byte[1024];
+                            int len;
 
                             OutputStream outputStream = socket.getOutputStream();
-                            ContentResolver cr = context.getContentResolver();
+                            ContentResolver cr = getActivity().getContentResolver();
                             InputStream inputStream = null;
                             inputStream = cr.openInputStream(Uri.parse("path/to/picture.jpg"));
                             while ((len = inputStream.read(buf)) != -1) {
                                 outputStream.write(buf, 0, len);
                             }
-                            outputStream.close();
-                            inputStream.close();
 
+                        }
+                        catch (Exception e) {
+                            Log.d("p2p_log", e.toString());
                         }
                     }
                 });
@@ -164,7 +178,22 @@ public class PeersListFragment extends Fragment {
                 mConnectButton.setOnClickListener(new View.OnClickListener() {
                     @Override
                     public void onClick(View view) {
-
+                        if (mReceiver.mClientSocket == null) {
+                            try {
+                                mReceiver.mClientSockets.get(mPeer.deviceName).close();
+                            }
+                            catch (Exception e) {
+                                Log.d("p2p_log", e.toString());
+                            }
+                        }
+                        else {
+                            try {
+                                mReceiver.mClientSocket.close();
+                            }
+                            catch (Exception e) {
+                                Log.d("p2p_log", e.toString());
+                            }
+                        }
 
                         mManager.removeGroup(mChannel, new ActionListener() {
                             @Override
