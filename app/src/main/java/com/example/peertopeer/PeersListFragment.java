@@ -1,8 +1,10 @@
 package com.example.peertopeer;
 
 import android.content.BroadcastReceiver;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.IntentFilter;
+import android.net.Uri;
 import android.net.wifi.p2p.WifiP2pConfig;
 import android.net.wifi.p2p.WifiP2pDevice;
 import android.net.wifi.p2p.WifiP2pDeviceList;
@@ -20,6 +22,8 @@ import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.TextView;
 
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -87,6 +91,7 @@ public class PeersListFragment extends Fragment {
 
         private TextView mDeviceTextView;
         private Button mConnectButton;
+        private Button mSendButton;
 
         private WifiP2pDevice mPeer;
 
@@ -96,15 +101,18 @@ public class PeersListFragment extends Fragment {
 
             mDeviceTextView = itemView.findViewById(R.id.list_item_peer_device_text_view);
             mConnectButton = itemView.findViewById(R.id.list_item_peer_connect_button);
+            mSendButton = itemView.findViewById(R.id.list_item_peer_send_button);
         }
 
         public void bindPeer(WifiP2pDevice peer) {
             mPeer = peer;
 
             mDeviceTextView.setText(mPeer.deviceName);
+            mSendButton.setText("Send image");
 
             if (mPeer.status != WifiP2pDevice.CONNECTED) {
                 mConnectButton.setText("Connect");
+                mSendButton.setVisibility(View.GONE);
 
                 mConnectButton.setOnClickListener(new View.OnClickListener() {
                     @Override
@@ -124,14 +132,39 @@ public class PeersListFragment extends Fragment {
                         });
                     }
                 });
+
+                mSendButton.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View view) {
+                        try {
+
+                            byte buf[]  = new byte[1024];
+
+                            OutputStream outputStream = socket.getOutputStream();
+                            ContentResolver cr = context.getContentResolver();
+                            InputStream inputStream = null;
+                            inputStream = cr.openInputStream(Uri.parse("path/to/picture.jpg"));
+                            while ((len = inputStream.read(buf)) != -1) {
+                                outputStream.write(buf, 0, len);
+                            }
+                            outputStream.close();
+                            inputStream.close();
+
+                        }
+                    }
+                });
+
+
             }
 
             else {
+                mSendButton.setVisibility(View.VISIBLE);
                 mConnectButton.setText("Disconnect");
 
                 mConnectButton.setOnClickListener(new View.OnClickListener() {
                     @Override
                     public void onClick(View view) {
+
 
                         mManager.removeGroup(mChannel, new ActionListener() {
                             @Override

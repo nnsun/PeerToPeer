@@ -16,6 +16,7 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.HashMap;
 
 
 public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
@@ -26,12 +27,19 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
 
     public PeerListListener mPeerListListener;
 
+    ServerSocket mServerSocket;
+
+    HashMap<String, Socket> clientSockets;
+
     public WiFiDirectBroadcastReceiver(WifiP2pManager manager, Channel channel, PeersListActivity activity) {
         super();
 
         mManager = manager;
         mChannel = channel;
         mActivity = activity;
+
+        clientSockets = new HashMap<>();
+
 
         mManager.discoverPeers(channel, new WifiP2pManager.ActionListener() {
             @Override
@@ -53,6 +61,14 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
                 mActivity.mFragment.updateUI(peers);
             }
         };
+
+        // Create the server socket
+        try {
+            mServerSocket = new ServerSocket(6003);
+        }
+        catch (IOException e) {
+            Log.d("p2p_log", "IOException on server socket create");
+        }
     }
 
     @Override
@@ -99,8 +115,7 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
                                     try {
                                         Log.d("p2p_log", "Trying to create sockets");
 
-                                        ServerSocket serverSocket = new ServerSocket(6003);
-                                        Socket clientSocket = serverSocket.accept();
+                                        Socket clientSocket = mServerSocket.accept();
 
                                         Log.d("p2p_log", "Sockets created");
                                     }

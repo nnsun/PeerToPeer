@@ -23,4 +23,13 @@
         tools:text="Peer Connect"
     />
 
+    <Button
+        android:id="@+id/list_item_peer_send_button"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/list_item_peer_connect_button"
+        android:padding="4dp"
+        tools:text="Peer Send"
+    />
+
 </RelativeLayout>
