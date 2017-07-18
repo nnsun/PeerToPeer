@@ -125,7 +125,6 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
                                     try {
                                         Log.d("p2p_log", "Trying to create sockets");
                                         Socket clientSocket = mServerSocket.accept();
-                                        Log.d("p2p_log", "Sockets created");
 
                                         InputStream is = clientSocket.getInputStream();
                                         InputStreamReader isr = new InputStreamReader(is);
@@ -133,6 +132,7 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
                                         String name = br.readLine();
 
                                         mClientSockets.put(name, clientSocket);
+                                        Log.d("p2p_log", "Socket connected to " + name);
                                     }
                                     catch (IOException e) {
                                         Log.d("p2p_log", "IOException");
