@@ -3,6 +3,7 @@ package com.example.peertopeer;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.net.Uri;
 import android.net.wifi.p2p.WifiP2pDevice;
 import android.net.wifi.p2p.WifiP2pDeviceList;
 import android.net.wifi.p2p.WifiP2pInfo;
@@ -10,17 +11,19 @@ import android.net.wifi.p2p.WifiP2pManager;
 import android.net.wifi.p2p.WifiP2pManager.Channel;
 import android.net.wifi.p2p.WifiP2pManager.PeerListListener;
 import android.os.AsyncTask;
+import android.os.Environment;
 import android.util.Log;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.net.InetAddress;
-import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.HashMap;
@@ -81,7 +84,7 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
     }
 
     @Override
-    public void onReceive(Context context, Intent intent) {
+    public void onReceive(final Context context, Intent intent) {
         String action = intent.getAction();
 
         if (WifiP2pManager.WIFI_P2P_STATE_CHANGED_ACTION.equals(action)) {
@@ -126,17 +129,20 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
                                         Log.d("p2p_log", "Trying to create sockets");
                                         Socket clientSocket = mServerSocket.accept();
 
-                                        InputStream is = clientSocket.getInputStream();
-                                        InputStreamReader isr = new InputStreamReader(is);
-                                        BufferedReader br = new BufferedReader(isr);
-                                        String name = br.readLine();
+                                        String name = SocketOperations.getName(clientSocket);
 
                                         mClientSockets.put(name, clientSocket);
                                         Log.d("p2p_log", "Socket connected to " + name);
+
+                                        FileOperations.getImage(clientSocket, context);
+
                                     }
-                                    catch (IOException e) {
-                                        Log.d("p2p_log", "IOException");
+                                    catch (Exception e) {
+                                        for (StackTraceElement elem : e.getStackTrace()) {
+                                            Log.e("p2p_log", elem.toString());
+                                        }
                                     }
+
                                     return null;
                                 }
 
@@ -153,22 +159,19 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
                                     try {
                                         Log.d("p2p_log", "Trying to connect sockets");
                                         InetAddress address = wifiP2pInfo.groupOwnerAddress;
-                                        Socket socket = new Socket();
-                                        socket.bind(null);
-                                        socket.connect(new InetSocketAddress(address, 6003), 500);
-                                        Log.d("p2p_log", "Sockets connected!");
+                                        Socket socket = SocketOperations.createSocket(address);
+
+                                        Log.d("p2p_log", "SocketOperations connected!");
                                         mClientSocket = socket;
 
-                                        OutputStream os = socket.getOutputStream();
-                                        OutputStreamWriter osw = new OutputStreamWriter(os);
-                                        BufferedWriter bw = new BufferedWriter(osw);
+                                        SocketOperations.sendName(socket, mDeviceName);
 
-                                        String sendMessage = mDeviceName + "\n";
-                                        bw.write(sendMessage);
-                                        bw.flush();
+                                        FileOperations.getImage(socket, context);
                                     }
-                                    catch (IOException e) {
-                                        Log.d("p2p_log", "IOException");
+                                    catch (Exception e) {
+                                        for (StackTraceElement elem : e.getStackTrace()) {
+                                            Log.e("p2p_log", elem.toString());
+                                        }
                                     }
                                     return null;
                                 }

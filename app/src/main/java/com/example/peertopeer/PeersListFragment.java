@@ -30,7 +30,6 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.util.ArrayList;
-import java.util.List;
 
 
 public class PeersListFragment extends Fragment {
@@ -56,11 +55,6 @@ public class PeersListFragment extends Fragment {
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
-        if (mCurrentSocket == null) {
-            Log.d("p2p_log", "mCurrentSocket is null");
-            return null;
-        }
-
         View view = inflater.inflate(R.layout.fragment_peer_list, container, false);
 
         mPeerRecyclerView = view.findViewById(R.id.peer_recycler_view);
@@ -87,61 +81,25 @@ public class PeersListFragment extends Fragment {
     }
 
     public void updateUI(WifiP2pDeviceList peers) {
-
-        if (mAdapter == null) {
-            mAdapter = new PeerAdapter(peers);
-            mPeerRecyclerView.setAdapter(mAdapter);
-        }
-        else {
-            mAdapter.mPeers = peers;
-            mAdapter.notifyDataSetChanged();
+        if (mPeerRecyclerView != null) {
+            if (mAdapter == null) {
+                mAdapter = new PeerAdapter(peers);
+                mPeerRecyclerView.setAdapter(mAdapter);
+            }
+            else {
+                mAdapter.mPeers = peers;
+                mAdapter.notifyDataSetChanged();
+            }
         }
     }
 
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
-
-        // User has picked an image. Transfer it to group owner i.e peer using
-        // FileTransferService.
-        Uri uri = data.getData();
-//        TextView statusText = (TextView) mPeerRecyclerView.findViewById(R.id.status_text);
-//        statusText.setText("Sending: " + uri);
-        Log.d("p2p_log", "Intent----------- " + uri);
-        Context context = getActivity();
-        try {
-            OutputStream stream = mCurrentSocket.getOutputStream();
-            ContentResolver cr = context.getContentResolver();
-            InputStream is = null;
-            try {
-                is = cr.openInputStream(Uri.parse(uri.toString()));
-            } catch (FileNotFoundException e) {
-                Log.d("p2p_log", e.toString());
-            }
-            copyFile(is, stream);
-            Log.d("p2p_log", "Client: Data written");
-        } catch (IOException e) {
-            Toast.makeText(context, "Failed to send file: " + e.getMessage(),
-                    Toast.LENGTH_SHORT).show();
-            Log.e("p2p_log", e.getMessage());
-        }
+        // User has picked an image. Transfer it to group owner i.e peer using FileTransferService.
+        FileOperations.sendImage(requestCode, resultCode, data, getActivity(), mCurrentSocket);
     }
 
-    public static boolean copyFile(InputStream inputStream, OutputStream out) {
-        byte buf[] = new byte[1024];
-        int len;
-        try {
-            while ((len = inputStream.read(buf)) != -1) {
-                out.write(buf, 0, len);
 
-            }
-            out.close();
-            inputStream.close();
-        } catch (IOException e) {
-            Log.d("p2p_log", e.toString());
-            return false;
-        }
-        return true;
-    }
 
 
     private class PeerHolder extends RecyclerView.ViewHolder {
