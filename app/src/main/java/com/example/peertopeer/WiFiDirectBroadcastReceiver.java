@@ -42,7 +42,6 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
 
         mClientSockets = new HashMap<>();
 
-
         mManager.discoverPeers(channel, new WifiP2pManager.ActionListener() {
             @Override
             public void onSuccess() {
@@ -66,7 +65,7 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
 
         // Create the server socket
         try {
-            mServerSocket = new ServerSocket(6003);
+            mServerSocket = new ServerSocket(SocketOperations.WIFI_P2P_PORT);
         }
         catch (IOException e) {
             Log.e("p2p_log", "IOException on server socket create");
@@ -74,7 +73,7 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
     }
 
     @Override
-    public void onReceive(final Context context, Intent intent) {
+    public void onReceive(final Context context, final Intent intent) {
         String action = intent.getAction();
 
         if (WifiP2pManager.WIFI_P2P_STATE_CHANGED_ACTION.equals(action)) {
@@ -108,6 +107,7 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
             mManager.requestConnectionInfo(mChannel, new WifiP2pManager.ConnectionInfoListener() {
                 @Override
                 public void onConnectionInfoAvailable(final WifiP2pInfo wifiP2pInfo) {
+
                     if (wifiP2pInfo.groupFormed) {
                         if (wifiP2pInfo.isGroupOwner) {
                             mClientSocket = null;
@@ -117,6 +117,7 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
                                 protected Object doInBackground(Object[] objects) {
                                     while (true) {
                                         try {
+                                            Log.d("p2p_log", "This is the server");
                                             Log.d("p2p_log", "Trying to create sockets");
                                             Socket clientSocket = mServerSocket.accept();
 
@@ -124,6 +125,8 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
 
                                             mClientSockets.put(name, clientSocket);
                                             Log.d("p2p_log", "Socket connected to " + name);
+
+                                            mManager.requestPeers(mChannel, mPeerListListener);
 
                                             FileOperations.getImage(clientSocket, context);
                                         }
@@ -147,6 +150,7 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
                                 protected Object doInBackground(Object[] objects) {
                                     try {
                                         while (true) {
+                                            Log.d("p2p_log", "This is a client");
                                             Log.d("p2p_log", "Trying to connect sockets");
                                             InetAddress address = wifiP2pInfo.groupOwnerAddress;
                                             Socket socket = SocketOperations.createSocket(address);
@@ -155,6 +159,8 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
                                             mClientSocket = socket;
 
                                             SocketOperations.sendName(socket, mDeviceName);
+
+                                            mManager.requestPeers(mChannel, mPeerListListener);
 
                                             FileOperations.getImage(socket, context);
                                         }

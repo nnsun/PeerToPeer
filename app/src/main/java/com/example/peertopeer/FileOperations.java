@@ -47,17 +47,22 @@ public class FileOperations {
         Log.d("p2p_log", "Sent image");
     }
 
-    public static void copyFile(InputStream inputStream, OutputStream outputStream) throws IOException {
+    public static int copyFile(InputStream inputStream, OutputStream outputStream) throws IOException {
         byte buf[] = new byte[16384];
+        int size = 0;
 
         int len = inputStream.read(buf);
         while (len > 0) {
+            size += len;
             outputStream.write(buf, 0, len);
             len = inputStream.read(buf);
+            Log.d("p2p_log", "In while loop");
         }
 
         inputStream.close();
         outputStream.close();
+
+        return size;
     }
 
     public static void getImage(Socket socket, Context context) throws IOException {
@@ -73,11 +78,12 @@ public class FileOperations {
         Log.d("p2p_log", "Trying to read");
 
         if (f.getAbsoluteFile() != null) {
-            copyFile(socket.getInputStream(), new FileOutputStream(f));
-            Intent intent = new Intent();
-            intent.setAction(android.content.Intent.ACTION_VIEW);
-            intent.setDataAndType(Uri.parse("file://" + f.getAbsolutePath()), "image/*");
-            context.startActivity(intent);
+            if (copyFile(socket.getInputStream(), new FileOutputStream(f)) > 0) {
+                Intent intent = new Intent();
+                intent.setAction(android.content.Intent.ACTION_VIEW);
+                intent.setDataAndType(Uri.parse("file://" + f.getAbsolutePath()), "image/*");
+                context.startActivity(intent);
+            }
         }
     }
 }

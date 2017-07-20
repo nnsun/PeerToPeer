@@ -15,10 +15,12 @@ import java.net.Socket;
 
 public class SocketOperations {
 
+    public static final int WIFI_P2P_PORT = 6003;
+
     public static Socket createSocket(InetAddress address) throws IOException {
         Socket socket = new Socket();
         socket.bind(null);
-        socket.connect(new InetSocketAddress(address, 6003), 500);
+        socket.connect(new InetSocketAddress(address, WIFI_P2P_PORT), 500);
         return socket;
     }
 
