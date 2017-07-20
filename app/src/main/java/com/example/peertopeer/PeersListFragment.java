@@ -1,11 +1,7 @@
 package com.example.peertopeer;
 
-import android.content.BroadcastReceiver;
-import android.content.ContentResolver;
-import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.net.Uri;
 import android.net.wifi.p2p.WifiP2pConfig;
 import android.net.wifi.p2p.WifiP2pDevice;
 import android.net.wifi.p2p.WifiP2pDeviceList;
@@ -22,12 +18,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.TextView;
-import android.widget.Toast;
 
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.net.Socket;
 import java.util.ArrayList;
 
@@ -96,11 +87,8 @@ public class PeersListFragment extends Fragment {
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         // User has picked an image. Transfer it to group owner i.e peer using FileTransferService.
-        FileOperations.sendImage(requestCode, resultCode, data, getActivity(), mCurrentSocket);
+        FileOperations.sendImage(data, getActivity(), mCurrentSocket);
     }
-
-
-
 
     private class PeerHolder extends RecyclerView.ViewHolder {
 
@@ -142,7 +130,7 @@ public class PeersListFragment extends Fragment {
 
                             @Override
                             public void onFailure(int i) {
-                                Log.d("p2p_log", "Failed to connect.");
+                                Log.d("p2p_log", "Failed to connect. Reason: " + i);
                             }
                         });
                     }
@@ -176,12 +164,13 @@ public class PeersListFragment extends Fragment {
                 mConnectButton.setOnClickListener(new View.OnClickListener() {
                     @Override
                     public void onClick(View view) {
+                        Log.d("p2p_log", "Connect button clicked");
                         if (mReceiver.mClientSocket == null) {
                             try {
                                 mReceiver.mClientSockets.get(mPeer.deviceName).close();
                             }
                             catch (Exception e) {
-                                Log.d("p2p_log", e.toString());
+                                Log.e("p2p_log", e.toString());
                             }
                         }
                         else {
@@ -189,7 +178,7 @@ public class PeersListFragment extends Fragment {
                                 mReceiver.mClientSocket.close();
                             }
                             catch (Exception e) {
-                                Log.d("p2p_log", e.toString());
+                                Log.e("p2p_log", e.toString());
                             }
                         }
 

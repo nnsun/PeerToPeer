@@ -11,7 +11,6 @@ import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import java.net.ServerSocket;
 import java.net.Socket;
 
 public class SocketOperations {
@@ -20,7 +19,6 @@ public class SocketOperations {
         Socket socket = new Socket();
         socket.bind(null);
         socket.connect(new InetSocketAddress(address, 6003), 500);
-
         return socket;
     }
 

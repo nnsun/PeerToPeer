@@ -18,13 +18,13 @@ import java.io.OutputStream;
 import java.net.Socket;
 
 public class FileOperations {
-    public static void sendImage(int requestCode, int resultCode, Intent data, Context context, Socket socket) {
+    public static void sendImage(Intent data, Context context, Socket socket) {
         Uri uri = data.getData();
-        Log.d("p2p_log", "Intent----------- " + uri);
 
         try {
             if (socket == null) {
-                Log.d("p2p_log", "mCurrentSocket is null");
+                Log.d("p2p_log", "Can't send: socket is null");
+                return;
             }
             OutputStream stream = socket.getOutputStream();
             ContentResolver cr = context.getContentResolver();
@@ -33,7 +33,7 @@ public class FileOperations {
                 is = cr.openInputStream(Uri.parse(uri.toString()));
             }
             catch (FileNotFoundException e) {
-                Log.d("p2p_log", e.toString());
+                Log.e("p2p_log", e.toString());
             }
             copyFile(is, stream);
             Log.d("p2p_log", "Client: Data written");
@@ -47,22 +47,17 @@ public class FileOperations {
         Log.d("p2p_log", "Sent image");
     }
 
-    public static boolean copyFile(InputStream inputStream, OutputStream outputStream) {
-        byte buf[] = new byte[1024];
-        int len;
-        try {
-            while ((len = inputStream.read(buf)) != -1) {
-                outputStream.write(buf, 0, len);
+    public static void copyFile(InputStream inputStream, OutputStream outputStream) throws IOException {
+        byte buf[] = new byte[16384];
 
-            }
-            outputStream.close();
-            inputStream.close();
+        int len = inputStream.read(buf);
+        while (len > 0) {
+            outputStream.write(buf, 0, len);
+            len = inputStream.read(buf);
         }
-        catch (IOException e) {
-            Log.d("p2p_log", e.toString());
-            return false;
-        }
-        return true;
+
+        inputStream.close();
+        outputStream.close();
     }
 
     public static void getImage(Socket socket, Context context) throws IOException {

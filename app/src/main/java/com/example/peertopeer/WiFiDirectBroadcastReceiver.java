@@ -3,7 +3,6 @@ package com.example.peertopeer;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.net.Uri;
 import android.net.wifi.p2p.WifiP2pDevice;
 import android.net.wifi.p2p.WifiP2pDeviceList;
 import android.net.wifi.p2p.WifiP2pInfo;
@@ -11,18 +10,9 @@ import android.net.wifi.p2p.WifiP2pManager;
 import android.net.wifi.p2p.WifiP2pManager.Channel;
 import android.net.wifi.p2p.WifiP2pManager.PeerListListener;
 import android.os.AsyncTask;
-import android.os.Environment;
 import android.util.Log;
 
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.io.OutputStreamWriter;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -79,7 +69,7 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
             mServerSocket = new ServerSocket(6003);
         }
         catch (IOException e) {
-            Log.d("p2p_log", "IOException on server socket create");
+            Log.e("p2p_log", "IOException on server socket create");
         }
     }
 
@@ -125,25 +115,24 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
 
                                 @Override
                                 protected Object doInBackground(Object[] objects) {
-                                    try {
-                                        Log.d("p2p_log", "Trying to create sockets");
-                                        Socket clientSocket = mServerSocket.accept();
+                                    while (true) {
+                                        try {
+                                            Log.d("p2p_log", "Trying to create sockets");
+                                            Socket clientSocket = mServerSocket.accept();
 
-                                        String name = SocketOperations.getName(clientSocket);
+                                            String name = SocketOperations.getName(clientSocket);
 
-                                        mClientSockets.put(name, clientSocket);
-                                        Log.d("p2p_log", "Socket connected to " + name);
+                                            mClientSockets.put(name, clientSocket);
+                                            Log.d("p2p_log", "Socket connected to " + name);
 
-                                        FileOperations.getImage(clientSocket, context);
-
-                                    }
-                                    catch (Exception e) {
-                                        for (StackTraceElement elem : e.getStackTrace()) {
-                                            Log.e("p2p_log", elem.toString());
+                                            FileOperations.getImage(clientSocket, context);
+                                        }
+                                        catch (Exception e) {
+                                            for (StackTraceElement elem : e.getStackTrace()) {
+                                                Log.e("p2p_log", elem.toString());
+                                            }
                                         }
                                     }
-
-                                    return null;
                                 }
 
                             };
@@ -157,16 +146,19 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
                                 @Override
                                 protected Object doInBackground(Object[] objects) {
                                     try {
-                                        Log.d("p2p_log", "Trying to connect sockets");
-                                        InetAddress address = wifiP2pInfo.groupOwnerAddress;
-                                        Socket socket = SocketOperations.createSocket(address);
+                                        while (true) {
+                                            Log.d("p2p_log", "Trying to connect sockets");
+                                            InetAddress address = wifiP2pInfo.groupOwnerAddress;
+                                            Socket socket = SocketOperations.createSocket(address);
 
-                                        Log.d("p2p_log", "SocketOperations connected!");
-                                        mClientSocket = socket;
+                                            Log.d("p2p_log", "Socket connected!");
+                                            mClientSocket = socket;
 
-                                        SocketOperations.sendName(socket, mDeviceName);
+                                            SocketOperations.sendName(socket, mDeviceName);
 
-                                        FileOperations.getImage(socket, context);
+                                            FileOperations.getImage(socket, context);
+                                        }
+
                                     }
                                     catch (Exception e) {
                                         for (StackTraceElement elem : e.getStackTrace()) {
