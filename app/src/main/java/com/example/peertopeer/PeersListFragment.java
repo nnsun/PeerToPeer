@@ -1,5 +1,6 @@
 package com.example.peertopeer;
 
+import android.bluetooth.BluetoothAdapter;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.net.wifi.p2p.WifiP2pConfig;
@@ -21,7 +22,6 @@ import android.widget.TextView;
 
 import java.net.Socket;
 import java.util.ArrayList;
-import java.util.List;
 
 
 public class PeersListFragment extends Fragment {
@@ -33,14 +33,15 @@ public class PeersListFragment extends Fragment {
 
     private BluetoothBroadcastReceiver mBluetoothReceiver;
     private IntentFilter mBluetoothIntentFilter;
+    private BluetoothAdapter mBluetoothAdapter;
 
     private Socket mCurrentSocket;
 
     protected static final int CHOOSE_FILE_RESULT_CODE = 20;
     private RecyclerView mWifiP2pRecyclerView;
-    private WifiP2pAdapter mWifiP2pAdapter;
+    private WifiP2pViewAdapter mWifiP2PViewAdapter;
     private RecyclerView mBluetoothRecyclerView;
-    private BluetoothAdapter mBluetoothAdapter;
+    private BluetoothViewAdapter mBluetoothViewAdapter;
 
     public void setWifiDirectArgs(WifiP2pManager manager, Channel channel, WiFiDirectBroadcastReceiver receiver, IntentFilter filter) {
         mManager = manager;
@@ -61,13 +62,28 @@ public class PeersListFragment extends Fragment {
         mWifiP2pRecyclerView = view.findViewById(R.id.wifi_p2p_list_recycler_view);
         mWifiP2pRecyclerView.setLayoutManager(new LinearLayoutManager(getActivity()));
 
-//        mBluetoothRecyclerView = view.findViewById(R.id.bluetooth_list_recyler_view);
-//        mBluetoothRecyclerView.setLayoutManager(new LinearLayoutManager(getActivity()));
+        mBluetoothRecyclerView = view.findViewById(R.id.bluetooth_list_recyler_view);
+        mBluetoothRecyclerView.setLayoutManager(new LinearLayoutManager(getActivity()));
 
-        if (mWifiP2pAdapter == null) {
-            mWifiP2pAdapter = new WifiP2pAdapter(new WifiP2pDeviceList());
-            mWifiP2pRecyclerView.setAdapter(mWifiP2pAdapter);
+        if (mWifiP2PViewAdapter == null) {
+            mWifiP2PViewAdapter = new WifiP2pViewAdapter(new WifiP2pDeviceList());
+            mWifiP2pRecyclerView.setAdapter(mWifiP2PViewAdapter);
         }
+
+        Button searchButton = view.findViewById(R.id.bluetooth_search_button);
+        searchButton.setText("Discover Bluetooth peers");
+        searchButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                // If we're already discovering, stop it
+                if (mBluetoothViewAdapter.isDiscovering()) {
+                    mBluetoothViewAdapter.cancelDiscovery();
+                }
+
+                // Request discover from BluetoothViewAdapter
+                mBluetoothViewAdapter.startDiscovery();
+            }
+        });
 
         return view;
     }
@@ -76,7 +92,7 @@ public class PeersListFragment extends Fragment {
     public void onResume() {
         super.onResume();
         getActivity().registerReceiver(mWifiDirectReceiver, mWifiDirectIntentFilter);
-//        getActivity().registerReceiver(mBluetoothReceiver, mBluetoothIntentFilter);
+        getActivity().registerReceiver(mBluetoothReceiver, mBluetoothIntentFilter);
     }
 
     @Override
@@ -84,7 +100,7 @@ public class PeersListFragment extends Fragment {
         super.onPause();
         try {
             getActivity().unregisterReceiver(mWifiDirectReceiver);
-//            getActivity().unregisterReceiver(mBluetoothReceiver);
+            getActivity().unregisterReceiver(mBluetoothReceiver);
         }
         catch (Exception e) {
 
@@ -96,7 +112,7 @@ public class PeersListFragment extends Fragment {
         super.onDestroy();
         try {
             getActivity().unregisterReceiver(mWifiDirectReceiver);
-//            getActivity().unregisterReceiver(mBluetoothReceiver);
+            getActivity().unregisterReceiver(mBluetoothReceiver);
         }
         catch (Exception e) {
 
@@ -105,13 +121,7 @@ public class PeersListFragment extends Fragment {
 
     public void updateUI(WifiP2pDeviceList peers) {
         if (mWifiP2pRecyclerView != null) {
-
-            for (WifiP2pDevice dev : peers.getDeviceList()) {
-                Log.d("p2p_log", dev.deviceName + " " + dev.isGroupOwner());
-            }
-
-            int numChildren = mWifiP2pAdapter.getItemCount();
-            Log.d("p2p_log", "Num children: " + numChildren);
+            int numChildren = mWifiP2PViewAdapter.getItemCount();
             if (mWifiDirectReceiver.mClientSockets.size() == 0 && mWifiDirectReceiver.mClientSocket != null) {
                 for (int i = 0; i < numChildren; i++) {
                     WifiP2pHolder holder = (WifiP2pHolder)mWifiP2pRecyclerView.findViewHolderForAdapterPosition(i);
@@ -126,18 +136,14 @@ public class PeersListFragment extends Fragment {
                 }
             }
 
-            if (mWifiP2pAdapter == null) {
-                mWifiP2pAdapter = new WifiP2pAdapter(peers);
-                mWifiP2pRecyclerView.setAdapter(mWifiP2pAdapter);
+            if (mWifiP2PViewAdapter == null) {
+                mWifiP2PViewAdapter = new WifiP2pViewAdapter(peers);
+                mWifiP2pRecyclerView.setAdapter(mWifiP2PViewAdapter);
             }
             else {
-                mWifiP2pAdapter.mPeers = peers;
-                mWifiP2pAdapter.notifyDataSetChanged();
+                mWifiP2PViewAdapter.mPeers = peers;
+                mWifiP2PViewAdapter.notifyDataSetChanged();
             }
-
-            Log.d("p2p_log", "In updateUI");
-
-
         }
     }
 
@@ -262,10 +268,10 @@ public class PeersListFragment extends Fragment {
         }
     }
 
-    private class WifiP2pAdapter extends RecyclerView.Adapter<WifiP2pHolder> {
+    private class WifiP2pViewAdapter extends RecyclerView.Adapter<WifiP2pHolder> {
         public WifiP2pDeviceList mPeers;
 
-        public WifiP2pAdapter(WifiP2pDeviceList peers) {
+        public WifiP2pViewAdapter(WifiP2pDeviceList peers) {
             mPeers = peers;
         }
 
@@ -295,7 +301,7 @@ public class PeersListFragment extends Fragment {
         }
     }
 
-    private class BluetoothAdapter extends RecyclerView.Adapter<BluetoothHolder> {
+    private class BluetoothViewAdapter extends RecyclerView.Adapter<BluetoothHolder> {
 
         @Override
         public BluetoothHolder onCreateViewHolder(ViewGroup parent, int viewType) {

@@ -57,8 +57,6 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
         mPeerListListener = new PeerListListener() {
             @Override
             public void onPeersAvailable(WifiP2pDeviceList peers) {
-                Log.d("p2p_log", "Number of peers found: " + Integer.toString(peers.getDeviceList().size()));
-
                 mActivity.mFragment.updateUI(peers);
             }
         };
@@ -188,12 +186,11 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
 
             WifiP2pDevice device = intent.getParcelableExtra(WifiP2pManager.EXTRA_WIFI_P2P_DEVICE);
             if (device == null) {
-                Log.d("p2p_log", "Something wrong");
+                Log.d("p2p_log", "Unable to get device name.");
                 mDeviceName = "";
             }
             else {
                 mDeviceName = device.deviceName;
-                Log.d("p2p_log", "Device name: " + mDeviceName);
             }
 
             mManager.requestPeers(mChannel, mPeerListListener);
