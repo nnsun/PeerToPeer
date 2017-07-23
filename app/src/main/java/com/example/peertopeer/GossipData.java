@@ -1,37 +1,35 @@
 package com.example.peertopeer;
 
-import android.content.Context;
-
-import java.util.HashSet;
 import java.util.Random;
+import java.util.TreeMap;
 
 public class GossipData {
 
     private static GossipData sGossipData;
 
-    public static HashSet<Integer> mData;
+    public static TreeMap<Integer, String> mData;
 
-    public static GossipData get() {
+    public static GossipData get(String name) {
         if (sGossipData == null) {
-            sGossipData = new GossipData();
+            sGossipData = new GossipData(name);
         }
         return sGossipData;
     }
 
-    private GossipData() {
-        mData = new HashSet<>();
+    private GossipData(String name) {
+        mData = new TreeMap<>();
 
         Random random = new Random();
         for (int i = 0; i < 1; i++) {
-            mData.add(random.nextInt(100) + 1);
+            mData.put(random.nextInt(100) + 1, name);
         }
     }
 
-    public HashSet<Integer> getData() {
+    public TreeMap<Integer, String> getData() {
         return mData;
     }
 
-    public void add(int n) {
-        mData.add(n);
+    public void add(int n, String name) {
+        mData.put(n, name);
     }
 }

@@ -1,7 +1,5 @@
 package com.example.peertopeer;
 
-import android.bluetooth.BluetoothAdapter;
-import android.content.Intent;
 import android.content.IntentFilter;
 import android.net.wifi.p2p.WifiP2pConfig;
 import android.net.wifi.p2p.WifiP2pDevice;
@@ -13,19 +11,18 @@ import android.net.wifi.p2p.WifiP2pManager.Channel;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
-import android.support.v7.widget.LinearLayoutManager;
-import android.support.v7.widget.RecyclerView;
+import android.text.Html;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
 import android.widget.TextView;
 
-import java.net.Socket;
 import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Random;
+import java.util.TreeMap;
 
 
 public class PeersListFragment extends Fragment {
@@ -36,6 +33,9 @@ public class PeersListFragment extends Fragment {
     private IntentFilter mWifiDirectIntentFilter;
 
     private GossipData mData;
+
+    private final String[] mColors = { "BLACK", "BLUE", "CYAN", "GREEN", "MAGENTA", "RED", "YELLOW" };
+    private HashMap<String, String> mColorMap;
 
     public void setWifiDirectArgs(WifiP2pManager manager, Channel channel, WiFiDirectBroadcastReceiver receiver, IntentFilter filter) {
         mManager = manager;
@@ -48,7 +48,7 @@ public class PeersListFragment extends Fragment {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        mData = GossipData.get();
+        mColorMap = new HashMap<>();
 
         AsyncTask timer = new AsyncTask() {
 
@@ -56,10 +56,18 @@ public class PeersListFragment extends Fragment {
             protected Object doInBackground(Object[] objects) {
                 while (true) {
                     try {
+                        Thread.sleep(10000);
+
+                        if (mWifiDirectReceiver.mDeviceName == null || mWifiDirectReceiver.mDeviceName.isEmpty() || mWifiDirectReceiver.mDeviceName.equals("null")) {
+                            continue;
+                        }
+                        if (mData == null && mWifiDirectReceiver != null) {
+                            mData = GossipData.get(mWifiDirectReceiver.mDeviceName);
+                        }
 
                         Random random = new Random();
                         if (random.nextBoolean()) {
-                            mData.add(random.nextInt(100) + 1);
+                            mData.add(random.nextInt(100) + 1, mWifiDirectReceiver.mDeviceName);
                         }
 
                         if (getView() != null) {
@@ -83,6 +91,10 @@ public class PeersListFragment extends Fragment {
 
                             @Override
                             public void onGroupInfoAvailable(WifiP2pGroup wifiP2pGroup) {
+
+                                if (wifiP2pGroup == null) {
+                                    return;
+                                }
 
                                 if (wifiP2pGroup.getClientList().size() == 0) {
                                     mManager.requestPeers(mChannel, new WifiP2pManager.PeerListListener() {
@@ -115,8 +127,6 @@ public class PeersListFragment extends Fragment {
                                 }
                             }
                         });
-
-                        Thread.sleep(10000);
 
                     } catch (Exception e) {
                         for (StackTraceElement elem : e.getStackTrace()) {
@@ -173,14 +183,24 @@ public class PeersListFragment extends Fragment {
     }
 
     public void updateUI(View view) {
-        TextView dataView = view.findViewById(R.id.data_view);
-        HashSet<Integer> dataset = mData.getData();
-
-        dataView.setText("Number of elements: " + dataset.size() + "\n");
-
-        for (int num : dataset) {
-            dataView.append(num + "\t");
+        if (mData == null) {
+            return;
         }
+
+        TextView dataView = view.findViewById(R.id.data_view);
+        TreeMap<Integer, String> dataset = mData.getData();
+
+        String text = "Number of elements: " + dataset.size() + "<br />";
+
+        for (Map.Entry<Integer, String> entrySet : dataset.entrySet()) {
+            int num = entrySet.getKey();
+            String name = entrySet.getValue();
+            if (!mColorMap.containsKey(name)) {
+                mColorMap.put(name, mColors[mColorMap.size() % mColors.length]);
+            }
+            text += "<font color=" + mColorMap.get(name) + ">" + num + "</font>\t";
+        }
+        dataView.setText(Html.fromHtml(text), TextView.BufferType.SPANNABLE);
     }
 
 

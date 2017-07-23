@@ -4,12 +4,10 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.net.wifi.p2p.WifiP2pDevice;
-import android.net.wifi.p2p.WifiP2pDeviceList;
 import android.net.wifi.p2p.WifiP2pGroup;
 import android.net.wifi.p2p.WifiP2pInfo;
 import android.net.wifi.p2p.WifiP2pManager;
 import android.net.wifi.p2p.WifiP2pManager.Channel;
-import android.net.wifi.p2p.WifiP2pManager.PeerListListener;
 import android.os.AsyncTask;
 import android.util.Log;
 
@@ -17,8 +15,6 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.HashMap;
-
 
 public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
 
@@ -26,9 +22,7 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
     private Channel mChannel;
     private PeersListActivity mActivity;
 
-//    public PeerListListener mPeerListListener;
-
-    private String mDeviceName;
+    public String mDeviceName;
 
     public ServerSocket mServerSocket;
     public Socket mClientSocket;
@@ -73,8 +67,6 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
                 // asynchronous call and the calling activity is notified with a
                 // callback on PeerListListener.onPeersAvailable()
 
-//                mManager.requestPeers(mChannel, mPeerListListener);
-
             }
             else {
                 // Wi-Fi P2P is not enabled
@@ -85,13 +77,14 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
         else if (WifiP2pManager.WIFI_P2P_PEERS_CHANGED_ACTION.equals(action)) {
             Log.d("p2p_log", "P2P peers changed");
 
-//            mManager.requestPeers(mChannel, mPeerListListener);
-
         }
         else if (WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION.equals(action)) {
             Log.d("p2p_log", "P2P connection changed");
 
-//            mManager.requestPeers(mChannel, mPeerListListener);
+            if (mDeviceName == null || mDeviceName.isEmpty() || mDeviceName.equals("null")) {
+                Log.d("p2p_log", "Device name is invalid, exiting");
+                return;
+            }
 
             mManager.requestConnectionInfo(mChannel, new WifiP2pManager.ConnectionInfoListener() {
                 @Override
@@ -111,14 +104,12 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
                                         Log.d("p2p_log", "Trying to create sockets");
                                         mClientSocket = mServerSocket.accept();
 
-                                        Log.d("p2p_log", mClientSocket.getSoTimeout() + " timeout");
-
                                         String name = SocketOperations.getName(mClientSocket);
 
                                         Log.d("p2p_log", "Socket connected to " + name);
 
-                                        FileOperations.sendData(mClientSocket);
-                                        FileOperations.getData(mClientSocket);
+                                        FileOperations.sendData(mClientSocket, mDeviceName);
+                                        FileOperations.getData(mClientSocket, mDeviceName);
 
                                     }
                                     catch (Exception e) {
@@ -151,10 +142,8 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
 
                                             SocketOperations.sendName(mClientSocket, mDeviceName);
 
-//                                            mManager.requestPeers(mChannel, mPeerListListener);
-
-                                            FileOperations.sendData(mClientSocket);
-                                            FileOperations.getData(mClientSocket);
+                                            FileOperations.sendData(mClientSocket, mDeviceName);
+                                            FileOperations.getData(mClientSocket, mDeviceName);
 
                                         }
 
@@ -177,16 +166,19 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
         else if (WifiP2pManager.WIFI_P2P_THIS_DEVICE_CHANGED_ACTION.equals(action)) {
             Log.d("p2p_log", "P2P device changed");
 
-            WifiP2pDevice device = intent.getParcelableExtra(WifiP2pManager.EXTRA_WIFI_P2P_DEVICE);
-            if (device == null) {
-                Log.d("p2p_log", "Unable to get device name.");
-                mDeviceName = "";
-            }
-            else {
-                mDeviceName = device.deviceName;
+            if (mDeviceName == null || mDeviceName.isEmpty() || mDeviceName.equals("null")) {
+                WifiP2pDevice device = intent.getParcelableExtra(WifiP2pManager.EXTRA_WIFI_P2P_DEVICE);
+                if (device == null || device.deviceName.equals("null")) {
+                    Log.d("p2p_log", "Unable to get device name.");
+                    mDeviceName = "";
+                }
+                else {
+                    mDeviceName = device.deviceName;
+                    Log.d("p2p_log", "name: " + mDeviceName);
+                }
             }
 
-//            mManager.requestPeers(mChannel, mPeerListListener);
+
 
         }
     }

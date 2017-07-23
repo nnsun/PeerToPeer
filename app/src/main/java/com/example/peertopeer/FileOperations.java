@@ -91,7 +91,7 @@ public class FileOperations {
         }
     }
 
-    public static void sendData(Socket socket) throws IOException {
+    public static void sendData(Socket socket, String name) throws IOException {
         if (socket == null) {
             Log.d("p2p_log", "Can't send: socket is null");
             return;
@@ -103,12 +103,12 @@ public class FileOperations {
         OutputStreamWriter osw = new OutputStreamWriter(os);
         BufferedWriter bw = new BufferedWriter(osw);
 
-        GossipData gossipData = GossipData.get();
+        GossipData gossipData = GossipData.get(name);
         bw.write(gossipData.mData.size() + "\n");
 
-        for (int num : gossipData.mData) {
-            bw.write(num + "\n");
-            Log.d("p2p_log", "Wrote: " + num);
+        for (int num : gossipData.mData.navigableKeySet()) {
+            bw.write(num + " " + gossipData.mData.get(num) + "\n");
+            Log.d("p2p_log", "Wrote: " + num + " " + gossipData.mData.get(num));
         }
 
         bw.flush();
@@ -117,7 +117,7 @@ public class FileOperations {
 
     }
 
-    public static void getData(Socket socket) throws IOException {
+    public static void getData(Socket socket, String deviceName) throws IOException {
 
         InputStream is = socket.getInputStream();
         InputStreamReader isr = new InputStreamReader(is);
@@ -133,9 +133,12 @@ public class FileOperations {
 
             Log.d("p2p_log", "Got: " + line);
 
-            int num = Integer.parseInt(line);
-            GossipData gossipData = GossipData.get();
-            gossipData.mData.add(num);
+            String[] split_line = line.split(" ", 2);
+
+            int num = Integer.parseInt(split_line[0]);
+            String peerName = split_line[1];
+            GossipData gossipData = GossipData.get(deviceName);
+            gossipData.mData.put(num, peerName);
 
         }
 
