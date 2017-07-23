@@ -20,7 +20,7 @@ public class SocketOperations {
     public static Socket createSocket(InetAddress address) throws IOException {
         Socket socket = new Socket();
         socket.bind(null);
-        socket.connect(new InetSocketAddress(address, WIFI_P2P_PORT), 500);
+        socket.connect(new InetSocketAddress(address, WIFI_P2P_PORT), 1000);
         return socket;
     }
 

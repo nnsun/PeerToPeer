@@ -5,6 +5,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.net.wifi.p2p.WifiP2pDevice;
 import android.net.wifi.p2p.WifiP2pDeviceList;
+import android.net.wifi.p2p.WifiP2pGroup;
 import android.net.wifi.p2p.WifiP2pInfo;
 import android.net.wifi.p2p.WifiP2pManager;
 import android.net.wifi.p2p.WifiP2pManager.Channel;
@@ -25,13 +26,12 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
     private Channel mChannel;
     private PeersListActivity mActivity;
 
-    public PeerListListener mPeerListListener;
+//    public PeerListListener mPeerListListener;
 
     private String mDeviceName;
 
     public ServerSocket mServerSocket;
     public Socket mClientSocket;
-    public HashMap<String, Socket> mClientSockets;
 
     public WiFiDirectBroadcastReceiver(WifiP2pManager manager, Channel channel, PeersListActivity activity) {
         super();
@@ -39,8 +39,6 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
         mManager = manager;
         mChannel = channel;
         mActivity = activity;
-
-        mClientSockets = new HashMap<>();
 
         mManager.discoverPeers(channel, new WifiP2pManager.ActionListener() {
             @Override
@@ -53,13 +51,6 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
                 Log.d("p2p_log", "Find peers failed. Reason: " + reasonCode);
             }
         });
-
-        mPeerListListener = new PeerListListener() {
-            @Override
-            public void onPeersAvailable(WifiP2pDeviceList peers) {
-                mActivity.mFragment.updateUI(peers);
-            }
-        };
 
         // Create the server socket
         try {
@@ -82,7 +73,7 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
                 // asynchronous call and the calling activity is notified with a
                 // callback on PeerListListener.onPeersAvailable()
 
-                mManager.requestPeers(mChannel, mPeerListListener);
+//                mManager.requestPeers(mChannel, mPeerListListener);
 
             }
             else {
@@ -94,79 +85,45 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
         else if (WifiP2pManager.WIFI_P2P_PEERS_CHANGED_ACTION.equals(action)) {
             Log.d("p2p_log", "P2P peers changed");
 
-            mManager.requestPeers(mChannel, mPeerListListener);
+//            mManager.requestPeers(mChannel, mPeerListListener);
 
         }
         else if (WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION.equals(action)) {
             Log.d("p2p_log", "P2P connection changed");
 
-            mManager.requestPeers(mChannel, mPeerListListener);
+//            mManager.requestPeers(mChannel, mPeerListListener);
 
             mManager.requestConnectionInfo(mChannel, new WifiP2pManager.ConnectionInfoListener() {
                 @Override
                 public void onConnectionInfoAvailable(final WifiP2pInfo wifiP2pInfo) {
 
                     if (wifiP2pInfo.groupFormed) {
+
                         if (wifiP2pInfo.isGroupOwner) {
+                            Log.d("p2p_log", "This is the server");
+
                             mClientSocket = null;
                             AsyncTask groupOwner = new AsyncTask() {
 
                                 @Override
                                 protected Object doInBackground(Object[] objects) {
-                                    while (true) {
-                                        try {
-                                            Log.d("p2p_log", "This is the server");
-                                            Log.d("p2p_log", "Trying to create sockets");
-                                            Socket clientSocket = mServerSocket.accept();
-
-                                            String name = SocketOperations.getName(clientSocket);
-
-                                            mClientSockets.put(name, clientSocket);
-                                            Log.d("p2p_log", "Socket connected to " + name);
-
-                                            mManager.requestPeers(mChannel, mPeerListListener);
-
-                                            FileOperations.getImage(clientSocket, context);
-                                        }
-                                        catch (Exception e) {
-                                            for (StackTraceElement elem : e.getStackTrace()) {
-                                                Log.e("p2p_log", elem.toString());
-                                            }
-                                        }
-                                    }
-                                }
-
-                            };
-
-                            groupOwner.execute();
-                        }
-
-                        else {
-                            AsyncTask groupClient = new AsyncTask() {
-
-                                @Override
-                                protected Object doInBackground(Object[] objects) {
                                     try {
-                                        while (true) {
-                                            Log.d("p2p_log", "This is a client");
-                                            Log.d("p2p_log", "Trying to connect sockets");
-                                            InetAddress address = wifiP2pInfo.groupOwnerAddress;
-                                            Socket socket = SocketOperations.createSocket(address);
+                                        Log.d("p2p_log", "Trying to create sockets");
+                                        mClientSocket = mServerSocket.accept();
 
-                                            Log.d("p2p_log", "Socket connected!");
-                                            mClientSocket = socket;
+                                        Log.d("p2p_log", mClientSocket.getSoTimeout() + " timeout");
 
-                                            SocketOperations.sendName(socket, mDeviceName);
+                                        String name = SocketOperations.getName(mClientSocket);
 
-                                            mManager.requestPeers(mChannel, mPeerListListener);
+                                        Log.d("p2p_log", "Socket connected to " + name);
 
-                                            FileOperations.getImage(socket, context);
-                                        }
+                                        FileOperations.sendData(mClientSocket);
+                                        FileOperations.getData(mClientSocket);
 
                                     }
                                     catch (Exception e) {
                                         for (StackTraceElement elem : e.getStackTrace()) {
-                                            Log.e("p2p_log", elem.toString());
+                                            Log.e("p2p_log", e.getMessage());
                                         }
                                     }
                                     return null;
@@ -174,7 +131,43 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
 
                             };
 
-                            groupClient.execute();
+                            groupOwner.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+                        }
+
+                        else {
+                            Log.d("p2p_log", "This is a client");
+
+                            AsyncTask groupClient = new AsyncTask() {
+
+                                @Override
+                                protected Object doInBackground(Object[] objects) {
+                                    try {
+                                        while (true) {
+                                            Log.d("p2p_log", "Trying to connect sockets");
+                                            InetAddress address = wifiP2pInfo.groupOwnerAddress;
+                                            Socket mClientSocket = SocketOperations.createSocket(address);
+
+                                            Log.d("p2p_log", "Socket connected!");
+
+                                            SocketOperations.sendName(mClientSocket, mDeviceName);
+
+//                                            mManager.requestPeers(mChannel, mPeerListListener);
+
+                                            FileOperations.sendData(mClientSocket);
+                                            FileOperations.getData(mClientSocket);
+
+                                        }
+
+                                    }
+                                    catch (Exception e) {
+                                        Log.d("p2p_log", e.getMessage());
+                                    }
+                                    return null;
+                                }
+
+                            };
+
+                            groupClient.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
                         }
                     }
                 }
@@ -193,8 +186,33 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
                 mDeviceName = device.deviceName;
             }
 
-            mManager.requestPeers(mChannel, mPeerListListener);
+//            mManager.requestPeers(mChannel, mPeerListListener);
 
+        }
+    }
+
+    public void disconnect() {
+        if (mManager != null && mChannel != null) {
+            mManager.requestGroupInfo(mChannel, new WifiP2pManager.GroupInfoListener() {
+                @Override
+                public void onGroupInfoAvailable(WifiP2pGroup group) {
+                    if (group != null && mManager != null && mChannel != null
+                            && group.isGroupOwner()) {
+                        mManager.removeGroup(mChannel, new WifiP2pManager.ActionListener() {
+
+                            @Override
+                            public void onSuccess() {
+                                Log.d("p2p_log", "removeGroup onSuccess");
+                            }
+
+                            @Override
+                            public void onFailure(int reason) {
+                                Log.d("p2p_log", "removeGroup onFailure -" + reason);
+                            }
+                        });
+                    }
+                }
+            });
         }
     }
 

@@ -9,12 +9,16 @@ import android.os.Environment;
 import android.util.Log;
 import android.widget.Toast;
 
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.net.Socket;
 
 public class FileOperations {
@@ -85,5 +89,59 @@ public class FileOperations {
                 context.startActivity(intent);
             }
         }
+    }
+
+    public static void sendData(Socket socket) throws IOException {
+        if (socket == null) {
+            Log.d("p2p_log", "Can't send: socket is null");
+            return;
+        }
+
+        Log.d("p2p_log", "Sending data");
+
+        OutputStream os = socket.getOutputStream();
+        OutputStreamWriter osw = new OutputStreamWriter(os);
+        BufferedWriter bw = new BufferedWriter(osw);
+
+        GossipData gossipData = GossipData.get();
+        bw.write(gossipData.mData.size() + "\n");
+
+        for (int num : gossipData.mData) {
+            bw.write(num + "\n");
+            Log.d("p2p_log", "Wrote: " + num);
+        }
+
+        bw.flush();
+
+        Log.d("p2p_log", "Finished sending data");
+
+    }
+
+    public static void getData(Socket socket) throws IOException {
+
+        InputStream is = socket.getInputStream();
+        InputStreamReader isr = new InputStreamReader(is);
+        BufferedReader br = new BufferedReader(isr);
+
+        String line = br.readLine();
+        Log.d("p2p_log", "Getting data");
+
+        int numElements = Integer.parseInt(line);
+
+        for (int i = 0; i < numElements; i++) {
+            line = br.readLine();
+
+            Log.d("p2p_log", "Got: " + line);
+
+            int num = Integer.parseInt(line);
+            GossipData gossipData = GossipData.get();
+            gossipData.mData.add(num);
+
+        }
+
+        Log.d("p2p_log", "Finished getting data");
+
+        is.close();
+        socket.getOutputStream().close();
     }
 }
