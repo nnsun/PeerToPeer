@@ -1,62 +1,152 @@
 package com.example.peertopeer;
 
-import android.content.BroadcastReceiver;
-import android.content.ContentResolver;
-import android.content.Context;
 import android.content.IntentFilter;
-import android.net.Uri;
 import android.net.wifi.p2p.WifiP2pConfig;
 import android.net.wifi.p2p.WifiP2pDevice;
 import android.net.wifi.p2p.WifiP2pDeviceList;
+import android.net.wifi.p2p.WifiP2pGroup;
 import android.net.wifi.p2p.WifiP2pManager;
 import android.net.wifi.p2p.WifiP2pManager.ActionListener;
 import android.net.wifi.p2p.WifiP2pManager.Channel;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
-import android.support.v7.widget.LinearLayoutManager;
-import android.support.v7.widget.RecyclerView;
+import android.text.Html;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
 import android.widget.TextView;
 
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.util.ArrayList;
-import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Random;
+import java.util.TreeMap;
 
 
 public class PeersListFragment extends Fragment {
 
-    private RecyclerView mPeerRecyclerView;
-    private PeerAdapter mAdapter;
-
     private WifiP2pManager mManager;
     private WifiP2pManager.Channel mChannel;
-    private BroadcastReceiver mReceiver;
+    private WiFiDirectBroadcastReceiver mWifiDirectReceiver;
+    private IntentFilter mWifiDirectIntentFilter;
 
-    private IntentFilter mIntentFilter;
+    private GossipData mData;
 
-    public void setNetworkArguments(WifiP2pManager manager, Channel channel, BroadcastReceiver receiver, IntentFilter filter) {
+    private final String[] mColors = { "BLACK", "BLUE", "CYAN", "GREEN", "MAGENTA", "RED", "YELLOW" };
+    private HashMap<String, String> mColorMap;
+
+    public void setWifiDirectArgs(WifiP2pManager manager, Channel channel, WiFiDirectBroadcastReceiver receiver, IntentFilter filter) {
         mManager = manager;
         mChannel = channel;
-        mReceiver = receiver;
-        mIntentFilter = filter;
+        mWifiDirectReceiver = receiver;
+        mWifiDirectIntentFilter = filter;
+    }
+
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+        mColorMap = new HashMap<>();
+
+        AsyncTask timer = new AsyncTask() {
+
+            @Override
+            protected Object doInBackground(Object[] objects) {
+                while (true) {
+                    try {
+                        Thread.sleep(10000);
+
+                        if (mWifiDirectReceiver.mDeviceName == null || mWifiDirectReceiver.mDeviceName.isEmpty() || mWifiDirectReceiver.mDeviceName.equals("null")) {
+                            continue;
+                        }
+                        if (mData == null && mWifiDirectReceiver != null) {
+                            mData = GossipData.get(mWifiDirectReceiver.mDeviceName);
+                        }
+
+                        Random random = new Random();
+                        if (random.nextBoolean()) {
+                            mData.add(random.nextInt(100) + 1, mWifiDirectReceiver.mDeviceName);
+                        }
+
+                        if (getView() != null) {
+                            getActivity().runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    updateUI(getView());
+                                }
+                            });
+                        }
+
+                        if (mWifiDirectReceiver.mClientSocket != null && !mWifiDirectReceiver.mClientSocket.isClosed()) {
+                            mWifiDirectReceiver.mClientSocket.close();
+                        }
+
+                        mWifiDirectReceiver.disconnect();
+
+                        mManager.discoverPeers(mChannel, null);
+
+                        mManager.requestGroupInfo(mChannel, new WifiP2pManager.GroupInfoListener() {
+
+                            @Override
+                            public void onGroupInfoAvailable(WifiP2pGroup wifiP2pGroup) {
+
+                                if (wifiP2pGroup == null) {
+                                    return;
+                                }
+
+                                if (wifiP2pGroup.getClientList().size() == 0) {
+                                    mManager.requestPeers(mChannel, new WifiP2pManager.PeerListListener() {
+                                        @Override
+                                        public void onPeersAvailable(WifiP2pDeviceList peers) {
+
+                                            Random random = new Random();
+                                            int numPeers = peers.getDeviceList().size();
+                                            if (numPeers > 0) {
+                                                WifiP2pDevice peer = new ArrayList<>(peers.getDeviceList()).get(random.nextInt(numPeers));
+
+                                                WifiP2pConfig config = new WifiP2pConfig();
+                                                config.deviceAddress = peer.deviceAddress;
+                                                mManager.connect(mChannel, config, new ActionListener() {
+                                                    @Override
+                                                    public void onSuccess() {
+                                                        Log.d("p2p_log", "Successfully connected");
+                                                    }
+
+                                                    @Override
+                                                    public void onFailure(int i) {
+                                                        Log.d("p2p_log", "Failed to connect. Reason: " + i);
+                                                        mManager.cancelConnect(mChannel, null);
+                                                    }
+                                                });
+                                            }
+
+                                        }
+                                    });
+                                }
+                            }
+                        });
+
+                    } catch (Exception e) {
+                        for (StackTraceElement elem : e.getStackTrace()) {
+                            Log.e("p2p_log", elem.toString());
+                        }
+                        break;
+                    }
+                }
+                return null;
+            }
+        };
+
+        timer.execute();
     }
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
-        View view = inflater.inflate(R.layout.fragment_peer_list, container, false);
+        View view = inflater.inflate(R.layout.peers_list_fragment, container, false);
 
-        mPeerRecyclerView = view.findViewById(R.id.peer_recycler_view);
-        mPeerRecyclerView.setLayoutManager(new LinearLayoutManager(getActivity()));
-
-        if (mAdapter == null) {
-            mAdapter = new PeerAdapter(new WifiP2pDeviceList());
-            mPeerRecyclerView.setAdapter(mAdapter);
-        }
+        updateUI(view);
 
         return view;
     }
@@ -64,151 +154,54 @@ public class PeersListFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
-        getActivity().registerReceiver(mReceiver, mIntentFilter);
+        getActivity().registerReceiver(mWifiDirectReceiver, mWifiDirectIntentFilter);
+//        getActivity().registerReceiver(mBluetoothReceiver, mBluetoothIntentFilter);
     }
 
     @Override
     public void onPause() {
         super.onPause();
-        getActivity().unregisterReceiver(mReceiver);
-    }
-
-    public void updateUI(WifiP2pDeviceList peers) {
-
-        Log.d("p2p_log", "Updating UI");
-
-        if (mAdapter == null) {
-            mAdapter = new PeerAdapter(peers);
-            mPeerRecyclerView.setAdapter(mAdapter);
+        try {
+            getActivity().unregisterReceiver(mWifiDirectReceiver);
+//            getActivity().unregisterReceiver(mBluetoothReceiver);
         }
-        else {
-            mAdapter.mPeers = peers;
-            mAdapter.notifyDataSetChanged();
+        catch (Exception e) {
+
         }
     }
 
-    private class PeerHolder extends RecyclerView.ViewHolder {
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        try {
+            getActivity().unregisterReceiver(mWifiDirectReceiver);
+//            getActivity().unregisterReceiver(mBluetoothReceiver);
+        }
+        catch (Exception e) {
 
-        private TextView mDeviceTextView;
-        private Button mConnectButton;
-        private Button mSendButton;
+        }
+    }
 
-        private WifiP2pDevice mPeer;
-
-
-        public PeerHolder(View itemView) {
-            super(itemView);
-
-            mDeviceTextView = itemView.findViewById(R.id.list_item_peer_device_text_view);
-            mConnectButton = itemView.findViewById(R.id.list_item_peer_connect_button);
-            mSendButton = itemView.findViewById(R.id.list_item_peer_send_button);
+    public void updateUI(View view) {
+        if (mData == null) {
+            return;
         }
 
-        public void bindPeer(WifiP2pDevice peer) {
-            mPeer = peer;
+        TextView dataView = view.findViewById(R.id.data_view);
+        TreeMap<Integer, String> dataset = mData.getData();
 
-            mDeviceTextView.setText(mPeer.deviceName);
-            mSendButton.setText("Send image");
+        String text = "Number of elements: " + dataset.size() + "<br />";
 
-            if (mPeer.status != WifiP2pDevice.CONNECTED) {
-                mConnectButton.setText("Connect");
-                mSendButton.setVisibility(View.GONE);
-
-                mConnectButton.setOnClickListener(new View.OnClickListener() {
-                    @Override
-                    public void onClick(View view) {
-                        WifiP2pConfig config = new WifiP2pConfig();
-                        config.deviceAddress = mPeer.deviceAddress;
-                        mManager.connect(mChannel, config, new ActionListener() {
-                            @Override
-                            public void onSuccess() {
-                                Log.d("p2p_log", "Successfully connected.");
-                            }
-
-                            @Override
-                            public void onFailure(int i) {
-                                Log.d("p2p_log", "Failed to connect.");
-                            }
-                        });
-                    }
-                });
-
-                mSendButton.setOnClickListener(new View.OnClickListener() {
-                    @Override
-                    public void onClick(View view) {
-                        try {
-
-                            byte buf[]  = new byte[1024];
-
-                            OutputStream outputStream = socket.getOutputStream();
-                            ContentResolver cr = context.getContentResolver();
-                            InputStream inputStream = null;
-                            inputStream = cr.openInputStream(Uri.parse("path/to/picture.jpg"));
-                            while ((len = inputStream.read(buf)) != -1) {
-                                outputStream.write(buf, 0, len);
-                            }
-                            outputStream.close();
-                            inputStream.close();
-
-                        }
-                    }
-                });
-
-
+        for (Map.Entry<Integer, String> entrySet : dataset.entrySet()) {
+            int num = entrySet.getKey();
+            String name = entrySet.getValue();
+            if (!mColorMap.containsKey(name)) {
+                mColorMap.put(name, mColors[mColorMap.size() % mColors.length]);
             }
-
-            else {
-                mSendButton.setVisibility(View.VISIBLE);
-                mConnectButton.setText("Disconnect");
-
-                mConnectButton.setOnClickListener(new View.OnClickListener() {
-                    @Override
-                    public void onClick(View view) {
-
-
-                        mManager.removeGroup(mChannel, new ActionListener() {
-                            @Override
-                            public void onSuccess() {
-
-                            }
-
-                            @Override
-                            public void onFailure(int i) {
-
-                            }
-                        });
-
-                    }
-                });
-            }
+            text += "<font color=" + mColorMap.get(name) + ">" + num + "</font>\t";
         }
+        dataView.setText(Html.fromHtml(text), TextView.BufferType.SPANNABLE);
     }
 
-    private class PeerAdapter extends RecyclerView.Adapter<PeerHolder> {
-        public WifiP2pDeviceList mPeers;
-
-        public PeerAdapter(WifiP2pDeviceList peers) {
-            mPeers = peers;
-        }
-
-        @Override
-        public PeerHolder onCreateViewHolder(ViewGroup parent, int viewType) {
-            LayoutInflater layoutInflater = LayoutInflater.from(getActivity());
-            View view = layoutInflater.inflate(R.layout.list_item_peer, parent, false);
-            return new PeerHolder(view);
-        }
-
-        @Override
-        public void onBindViewHolder(PeerHolder holder, int position) {
-            WifiP2pDevice peer = new ArrayList<>(mPeers.getDeviceList()).get(position);
-            holder.bindPeer(peer);
-        }
-
-        @Override
-        public int getItemCount() {
-            return mPeers.getDeviceList().size();
-        }
-
-    }
 
 }
