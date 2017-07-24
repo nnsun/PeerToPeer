@@ -22,6 +22,9 @@ public class PeersListActivity extends SingleFragmentActivity {
     WiFiDirectBroadcastReceiver mWifiDirectReceiver;
     IntentFilter mWifiDirectIntentFilter;
 
+    IntentFilter mBluetoothIntentFilter;
+    private final static int REQUEST_ENABLE_BT = 1;
+
     PeersListFragment mFragment;
 
     @Override
@@ -36,8 +39,21 @@ public class PeersListActivity extends SingleFragmentActivity {
         mWifiDirectIntentFilter.addAction(WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION);
         mWifiDirectIntentFilter.addAction(WifiP2pManager.WIFI_P2P_THIS_DEVICE_CHANGED_ACTION);
 
+        mBluetoothIntentFilter = new IntentFilter(BluetoothDevice.ACTION_FOUND);
+
+        BluetoothAdapter mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+        if (mBluetoothAdapter == null) {
+            Log.d("p2p_log", "Device does not support Bluetooth");
+        }
+
+        if (!mBluetoothAdapter.isEnabled()) {
+            Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+            startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
+        }
+
         mFragment = new PeersListFragment();
         mFragment.setWifiDirectArgs(mManager, mChannel, mWifiDirectReceiver, mWifiDirectIntentFilter);
+//        mFragment.setBluetoothArgs(mBluetoothAdapter, new BluetoothBroadcastReceiver(), mBluetoothIntentFilter);
         return mFragment;
     }
 

@@ -1,5 +1,6 @@
 package com.example.peertopeer;
 
+import android.bluetooth.BluetoothAdapter;
 import android.content.IntentFilter;
 import android.net.wifi.p2p.WifiP2pConfig;
 import android.net.wifi.p2p.WifiP2pDevice;
@@ -32,6 +33,10 @@ public class PeersListFragment extends Fragment {
     private WiFiDirectBroadcastReceiver mWifiDirectReceiver;
     private IntentFilter mWifiDirectIntentFilter;
 
+    private BluetoothBroadcastReceiver mBluetoothReceiver;
+    private IntentFilter mBluetoothIntentFilter;
+    private BluetoothAdapter mBluetoothAdapter;
+
     private GossipData mData;
 
     private final String[] mColors = { "BLACK", "BLUE", "CYAN", "GREEN", "MAGENTA", "RED", "YELLOW" };
@@ -42,6 +47,12 @@ public class PeersListFragment extends Fragment {
         mChannel = channel;
         mWifiDirectReceiver = receiver;
         mWifiDirectIntentFilter = filter;
+    }
+
+    public void setBluetoothArgs(BluetoothAdapter adapter, BluetoothBroadcastReceiver receiver, IntentFilter intent) {
+        mBluetoothReceiver = receiver;
+        mBluetoothIntentFilter = intent;
+        mBluetoothAdapter = adapter;
     }
 
     @Override
