@@ -22,6 +22,10 @@ public class PeersListActivity extends SingleFragmentActivity {
     WiFiDirectBroadcastReceiver mWifiDirectReceiver;
     IntentFilter mWifiDirectIntentFilter;
 
+    BluetoothBroadcastReceiver mBluetoothReceiver;
+    IntentFilter mBluetoothIntentFilter;
+    private final static int REQUEST_ENABLE_BT = 1;
+
     PeersListFragment mFragment;
 
     @Override
@@ -35,8 +39,27 @@ public class PeersListActivity extends SingleFragmentActivity {
         mWifiDirectIntentFilter.addAction(WifiP2pManager.WIFI_P2P_PEERS_CHANGED_ACTION);
         mWifiDirectIntentFilter.addAction(WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION);
         mWifiDirectIntentFilter.addAction(WifiP2pManager.WIFI_P2P_THIS_DEVICE_CHANGED_ACTION);
-
         mFragment = new PeersListFragment();
+
+        mBluetoothIntentFilter = new IntentFilter();
+        mBluetoothIntentFilter.addAction(BluetoothAdapter.ACTION_DISCOVERY_STARTED);
+        mBluetoothIntentFilter.addAction(BluetoothDevice.ACTION_FOUND);
+        mBluetoothIntentFilter.addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
+        mBluetoothReceiver = new BluetoothBroadcastReceiver();
+
+        BluetoothAdapter mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+        if (mBluetoothAdapter != null) {
+            if (!mBluetoothAdapter.isEnabled()) {
+                Log.d("p2p_log", "Bluetooth is not enabled");
+                Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+                startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
+            }
+            mFragment.setBluetoothArgs(mBluetoothAdapter, mBluetoothReceiver, mBluetoothIntentFilter);
+
+        } else {
+            Log.d("p2p_log", "Device does not support Bluetooth");
+        }
+
         mFragment.setWifiDirectArgs(mManager, mChannel, mWifiDirectReceiver, mWifiDirectIntentFilter);
         return mFragment;
     }

@@ -76,8 +76,8 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
         }
         else if (WifiP2pManager.WIFI_P2P_PEERS_CHANGED_ACTION.equals(action)) {
             Log.d("p2p_log", "P2P peers changed");
-
         }
+
         else if (WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION.equals(action)) {
             Log.d("p2p_log", "P2P connection changed");
 
@@ -91,7 +91,7 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
                 public void onConnectionInfoAvailable(final WifiP2pInfo wifiP2pInfo) {
 
                     if (wifiP2pInfo.groupFormed) {
-
+                        Log.d("p2p_log", "Wifi direct group formed");
                         if (wifiP2pInfo.isGroupOwner) {
                             Log.d("p2p_log", "This is the server");
 

@@ -1,5 +1,7 @@
 package com.example.peertopeer;
 
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
 import android.content.IntentFilter;
 import android.net.wifi.p2p.WifiP2pConfig;
 import android.net.wifi.p2p.WifiP2pDevice;
@@ -16,10 +18,12 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.TextView;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.TreeMap;
@@ -32,7 +36,12 @@ public class PeersListFragment extends Fragment {
     private WiFiDirectBroadcastReceiver mWifiDirectReceiver;
     private IntentFilter mWifiDirectIntentFilter;
 
+    private BluetoothBroadcastReceiver mBluetoothReceiver;
+    private IntentFilter mBluetoothIntentFilter;
+    private BluetoothAdapter mBluetoothAdapter;
+
     private GossipData mData;
+    public static List<BluetoothDevice> mBluetoothDevices;
 
     private final String[] mColors = { "BLACK", "BLUE", "CYAN", "GREEN", "MAGENTA", "RED", "YELLOW" };
     private HashMap<String, String> mColorMap;
@@ -44,11 +53,19 @@ public class PeersListFragment extends Fragment {
         mWifiDirectIntentFilter = filter;
     }
 
+    public void setBluetoothArgs(BluetoothAdapter adapter, BluetoothBroadcastReceiver receiver, IntentFilter intent) {
+        mBluetoothReceiver = receiver;
+        mBluetoothIntentFilter = intent;
+        mBluetoothAdapter = adapter;
+    }
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
         mColorMap = new HashMap<>();
+        mBluetoothDevices = new ArrayList<>();
+        BluetoothOperations.enableDiscoverability(getContext());
 
         AsyncTask timer = new AsyncTask() {
 
@@ -102,24 +119,35 @@ public class PeersListFragment extends Fragment {
                                         public void onPeersAvailable(WifiP2pDeviceList peers) {
 
                                             Random random = new Random();
-                                            int numPeers = peers.getDeviceList().size();
+                                            int numPeers = peers.getDeviceList().size() + mBluetoothDevices.size();
                                             if (numPeers > 0) {
-                                                WifiP2pDevice peer = new ArrayList<>(peers.getDeviceList()).get(random.nextInt(numPeers));
+                                                int randomPeer = random.nextInt(numPeers);
+                                                int numWifiDirectPeers = peers.getDeviceList().size();
 
-                                                WifiP2pConfig config = new WifiP2pConfig();
-                                                config.deviceAddress = peer.deviceAddress;
-                                                mManager.connect(mChannel, config, new ActionListener() {
-                                                    @Override
-                                                    public void onSuccess() {
-                                                        Log.d("p2p_log", "Successfully connected");
-                                                    }
+                                                if (randomPeer < numWifiDirectPeers) {
+                                                    WifiP2pDevice peer = new ArrayList<>(peers.getDeviceList()).get(random.nextInt(numPeers));
 
-                                                    @Override
-                                                    public void onFailure(int i) {
-                                                        Log.d("p2p_log", "Failed to connect. Reason: " + i);
-                                                        mManager.cancelConnect(mChannel, null);
-                                                    }
-                                                });
+                                                    WifiP2pConfig config = new WifiP2pConfig();
+                                                    config.deviceAddress = peer.deviceAddress;
+                                                    mManager.connect(mChannel, config, new ActionListener() {
+                                                        @Override
+                                                        public void onSuccess() {
+                                                            Log.d("p2p_log", "Successfully connected");
+                                                        }
+
+                                                        @Override
+                                                        public void onFailure(int i) {
+                                                            Log.d("p2p_log", "Failed to connect. Reason: " + i);
+                                                            mManager.cancelConnect(mChannel, null);
+                                                        }
+                                                    });
+                                                }
+                                                else {
+                                                    BluetoothDevice peer = mBluetoothDevices.get(randomPeer - numWifiDirectPeers);
+                                                    //
+                                                }
+
+
                                             }
 
                                         }
@@ -146,6 +174,16 @@ public class PeersListFragment extends Fragment {
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.peers_list_fragment, container, false);
 
+        Button bluetoothDiscover = view.findViewById(R.id.bluetooth_discover_button);
+        bluetoothDiscover.setText("Discover Bluetooth peers");
+        bluetoothDiscover.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Log.d("p2p_log", "Bluetooth discovery button pressed");
+                BluetoothOperations.discover(mBluetoothAdapter);
+            }
+        });
+
         updateUI(view);
 
         return view;
@@ -155,7 +193,7 @@ public class PeersListFragment extends Fragment {
     public void onResume() {
         super.onResume();
         getActivity().registerReceiver(mWifiDirectReceiver, mWifiDirectIntentFilter);
-//        getActivity().registerReceiver(mBluetoothReceiver, mBluetoothIntentFilter);
+        getActivity().registerReceiver(mBluetoothReceiver, mBluetoothIntentFilter);
     }
 
     @Override
@@ -163,7 +201,7 @@ public class PeersListFragment extends Fragment {
         super.onPause();
         try {
             getActivity().unregisterReceiver(mWifiDirectReceiver);
-//            getActivity().unregisterReceiver(mBluetoothReceiver);
+            getActivity().unregisterReceiver(mBluetoothReceiver);
         }
         catch (Exception e) {
 
@@ -175,7 +213,7 @@ public class PeersListFragment extends Fragment {
         super.onDestroy();
         try {
             getActivity().unregisterReceiver(mWifiDirectReceiver);
-//            getActivity().unregisterReceiver(mBluetoothReceiver);
+            getActivity().unregisterReceiver(mBluetoothReceiver);
         }
         catch (Exception e) {
 

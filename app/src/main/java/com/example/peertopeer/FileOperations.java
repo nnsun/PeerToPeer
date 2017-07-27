@@ -126,7 +126,16 @@ public class FileOperations {
         String line = br.readLine();
         Log.d("p2p_log", "Getting data");
 
-        int numElements = Integer.parseInt(line);
+        int numElements = 0;
+
+        try {
+            numElements = Integer.parseInt(line);
+            Log.d("p2p_log", "Trying to read " + numElements + " items");
+        }
+        catch (NumberFormatException e) {
+            Log.d("p2p_log", "Failed to get a valid integer, received: " + line);
+        }
+
 
         for (int i = 0; i < numElements; i++) {
             line = br.readLine();
