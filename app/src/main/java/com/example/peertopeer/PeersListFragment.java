@@ -2,6 +2,7 @@ package com.example.peertopeer;
 
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothSocket;
 import android.content.IntentFilter;
 import android.net.wifi.p2p.WifiP2pConfig;
 import android.net.wifi.p2p.WifiP2pDevice;
@@ -11,6 +12,7 @@ import android.net.wifi.p2p.WifiP2pManager;
 import android.net.wifi.p2p.WifiP2pManager.ActionListener;
 import android.net.wifi.p2p.WifiP2pManager.Channel;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
 import android.text.Html;
@@ -21,6 +23,9 @@ import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.TextView;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -119,13 +124,22 @@ public class PeersListFragment extends Fragment {
                                         public void onPeersAvailable(WifiP2pDeviceList peers) {
 
                                             Random random = new Random();
-                                            int numPeers = peers.getDeviceList().size() + mBluetoothDevices.size();
+                                            int numPeers;
+
+                                            if (mBluetoothReceiver.mServerSocket != null) {
+                                                numPeers = peers.getDeviceList().size() + mBluetoothDevices.size();
+                                            }
+                                            else {
+                                                numPeers = peers.getDeviceList().size();
+                                            }
+
                                             if (numPeers > 0) {
                                                 int randomPeer = random.nextInt(numPeers);
                                                 int numWifiDirectPeers = peers.getDeviceList().size();
 
+                                                // connecting to a Wi-Fi Direct peer
                                                 if (randomPeer < numWifiDirectPeers) {
-                                                    WifiP2pDevice peer = new ArrayList<>(peers.getDeviceList()).get(random.nextInt(numPeers));
+                                                    WifiP2pDevice peer = new ArrayList<>(peers.getDeviceList()).get(randomPeer);
 
                                                     WifiP2pConfig config = new WifiP2pConfig();
                                                     config.deviceAddress = peer.deviceAddress;
@@ -142,11 +156,50 @@ public class PeersListFragment extends Fragment {
                                                         }
                                                     });
                                                 }
-                                                else {
-                                                    BluetoothDevice peer = mBluetoothDevices.get(randomPeer - numWifiDirectPeers);
-                                                    //
-                                                }
 
+                                                // Connect to a Bluetooth peer if it is not currently discovering peers
+                                                else if (!mBluetoothAdapter.isDiscovering()) {
+                                                    final BluetoothDevice peer = mBluetoothDevices.get(randomPeer - numWifiDirectPeers);
+
+                                                    Log.d("p2p_log", "Trying to connect to " + peer.getName());
+
+                                                    BluetoothSocket mmSocket = null;
+                                                    try {
+                                                        // Get a BluetoothSocket to connect with the given BluetoothDevice.
+                                                        // MY_UUID is the app's UUID string, also used in the server code.
+                                                        mmSocket = peer.createRfcommSocketToServiceRecord(BluetoothOperations.MY_UUID);
+                                                    }
+                                                    catch (IOException e) {
+                                                        Log.e("p2p_log", "Socket's create() method failed", e);
+                                                    }
+
+
+                                                    mBluetoothAdapter.cancelDiscovery();
+                                                    try {
+                                                        // Connect to the remote device through the socket. This call blocks
+                                                        // until it succeeds or throws an exception.
+                                                        mmSocket.connect();
+                                                        Log.d("p2p_log", "Successfully connected");
+
+                                                        FileOperations.bluetoothSendData(mmSocket, mBluetoothAdapter.getAddress());
+                                                        FileOperations.bluetoothGetData(mmSocket, mBluetoothAdapter.getAddress());
+
+
+                                                    }
+                                                    catch (IOException connectException) {
+                                                        // Unable to connect; close the socket and return.
+                                                        Log.d("p2p_log", "Bluetooth socket connect failed, trying fallback...");
+
+                                                        try {
+                                                            mmSocket = (BluetoothSocket)peer.getClass().getMethod("createRfcommSocket", new Class[] {int.class}).invoke(peer, 1);
+                                                            mmSocket.connect();
+                                                        }
+                                                        catch (Exception e) {
+                                                            Log.e("p2p_log", "Fallback Bluetooth connect failed");
+                                                            Log.e("p2p_log", e.getMessage());
+                                                        }
+                                                    }
+                                                }
 
                                             }
 

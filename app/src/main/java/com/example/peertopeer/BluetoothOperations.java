@@ -6,13 +6,9 @@ import android.bluetooth.BluetoothServerSocket;
 import android.bluetooth.BluetoothSocket;
 import android.content.Context;
 import android.content.Intent;
-import android.os.Handler;
-import android.provider.SyncStateContract;
 import android.util.Log;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.util.Set;
 import java.util.UUID;
 
@@ -44,7 +40,7 @@ public class BluetoothOperations {
 
     public static void enableDiscoverability(Context context) {
         Intent discoverableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
-        discoverableIntent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300);
+        discoverableIntent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 0);
         context.startActivity(discoverableIntent);
     }
 
@@ -81,7 +77,8 @@ public class BluetoothOperations {
             try {
                 // MY_UUID is the app's UUID string, also used by the client code.
                 tmp = bluetoothAdapter.listenUsingRfcommWithServiceRecord(NAME, MY_UUID);
-            } catch (IOException e) {
+            }
+            catch (IOException e) {
                 Log.e("p2p_log", "Socket's listen() method failed", e);
             }
             mmServerSocket = tmp;
@@ -93,7 +90,8 @@ public class BluetoothOperations {
             while (true) {
                 try {
                     socket = mmServerSocket.accept();
-                } catch (IOException e) {
+                }
+                catch (IOException e) {
                     Log.e("p2p_log", "Socket's accept() method failed", e);
                     break;
                 }
@@ -104,7 +102,8 @@ public class BluetoothOperations {
                     //manageMyConnectedSocket(socket);
                     try {
                         mmServerSocket.close();
-                    } catch (IOException e) {
+                    }
+                    catch (IOException e) {
                         e.printStackTrace();
                     }
                     break;
@@ -116,7 +115,8 @@ public class BluetoothOperations {
         public void cancel() {
             try {
                 mmServerSocket.close();
-            } catch (IOException e) {
+            }
+            catch (IOException e) {
                 Log.e("p2p_log", "Could not close the connect socket", e);
             }
         }
@@ -140,7 +140,8 @@ public class BluetoothOperations {
                 // Get a BluetoothSocket to connect with the given BluetoothDevice.
                 // MY_UUID is the app's UUID string, also used in the server code.
                 tmp = device.createRfcommSocketToServiceRecord(MY_UUID);
-            } catch (IOException e) {
+            }
+            catch (IOException e) {
                 Log.e("p2p_log", "Socket's create() method failed", e);
             }
             mmSocket = tmp;
@@ -154,12 +155,14 @@ public class BluetoothOperations {
                 // Connect to the remote device through the socket. This call blocks
                 // until it succeeds or throws an exception.
                 mmSocket.connect();
-            } catch (IOException connectException) {
+            }
+            catch (IOException connectException) {
                 // Unable to connect; close the socket and return.
                 Log.d("p2p_log", "!!!Could not connect to the server!!!");
                 try {
                     mmSocket.close();
-                } catch (IOException closeException) {
+                }
+                catch (IOException closeException) {
                     Log.e("p2p_log", "Could not close the client socket", closeException);
                 }
                 return;
@@ -174,7 +177,8 @@ public class BluetoothOperations {
         public void cancel() {
             try {
                 mmSocket.close();
-            } catch (IOException e) {
+            }
+            catch (IOException e) {
                 Log.e("p2p_log", "Could not close the client socket", e);
             }
         }

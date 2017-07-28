@@ -91,7 +91,6 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
                 public void onConnectionInfoAvailable(final WifiP2pInfo wifiP2pInfo) {
 
                     if (wifiP2pInfo.groupFormed) {
-                        Log.d("p2p_log", "Wifi direct group formed");
                         if (wifiP2pInfo.isGroupOwner) {
                             Log.d("p2p_log", "This is the server");
 
@@ -111,8 +110,7 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
                                         FileOperations.sendData(mClientSocket, mDeviceName);
                                         FileOperations.getData(mClientSocket, mDeviceName);
 
-                                    }
-                                    catch (Exception e) {
+                                    } catch (Exception e) {
                                         for (StackTraceElement elem : e.getStackTrace()) {
                                             Log.e("p2p_log", e.getMessage());
                                         }
@@ -133,19 +131,16 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
                                 @Override
                                 protected Object doInBackground(Object[] objects) {
                                     try {
-                                        while (true) {
-                                            Log.d("p2p_log", "Trying to connect sockets");
-                                            InetAddress address = wifiP2pInfo.groupOwnerAddress;
-                                            Socket mClientSocket = SocketOperations.createSocket(address);
+                                        Log.d("p2p_log", "Trying to connect sockets");
+                                        InetAddress address = wifiP2pInfo.groupOwnerAddress;
+                                        Socket mClientSocket = SocketOperations.createSocket(address);
 
-                                            Log.d("p2p_log", "Socket connected!");
+                                        Log.d("p2p_log", "Socket connected!");
 
-                                            SocketOperations.sendName(mClientSocket, mDeviceName);
+                                        SocketOperations.sendName(mClientSocket, mDeviceName);
 
-                                            FileOperations.sendData(mClientSocket, mDeviceName);
-                                            FileOperations.getData(mClientSocket, mDeviceName);
-
-                                        }
+                                        FileOperations.sendData(mClientSocket, mDeviceName);
+                                        FileOperations.getData(mClientSocket, mDeviceName);
 
                                     }
                                     catch (Exception e) {
@@ -159,6 +154,7 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
                             groupClient.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
                         }
                     }
+
                 }
             });
 
