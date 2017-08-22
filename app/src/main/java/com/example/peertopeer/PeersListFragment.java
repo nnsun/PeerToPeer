@@ -3,24 +3,21 @@ package com.example.peertopeer;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothSocket;
+import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.Intent;
 import android.content.IntentFilter;
+import android.net.DhcpInfo;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiManager;
-import android.net.wifi.p2p.WifiP2pConfig;
 import android.net.wifi.p2p.WifiP2pDevice;
-import android.net.wifi.p2p.WifiP2pDeviceList;
-import android.net.wifi.p2p.WifiP2pGroup;
-import android.net.wifi.p2p.WifiP2pInfo;
 import android.net.wifi.p2p.WifiP2pManager;
 import android.net.wifi.p2p.WifiP2pManager.ActionListener;
 import android.net.wifi.p2p.WifiP2pManager.Channel;
 import android.net.wifi.p2p.WifiP2pManager.DnsSdServiceResponseListener;
 import android.net.wifi.p2p.WifiP2pManager.DnsSdTxtRecordListener;
-import android.net.wifi.p2p.nsd.WifiP2pDnsSdServiceInfo;
 import android.net.wifi.p2p.nsd.WifiP2pDnsSdServiceRequest;
 import android.os.AsyncTask;
-import android.os.Build;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
 import android.text.Html;
@@ -32,8 +29,8 @@ import android.widget.Button;
 import android.widget.TextView;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.net.InetAddress;
+import java.net.Socket;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -54,10 +51,11 @@ public class PeersListFragment extends Fragment {
     private BluetoothBroadcastReceiver mBluetoothReceiver;
     private IntentFilter mBluetoothIntentFilter;
     private BluetoothAdapter mBluetoothAdapter;
+    private WifiManager mWifiManager;
 
     private GossipData mData;
     public static List<BluetoothDevice> mBluetoothDevices;
-    private static Map<String, String> mWifiDirectDevices;
+    private static Map<String, String[]> mWifiDirectDevices;
 
     private final String[] mColors = { "BLACK", "BLUE", "CYAN", "GREEN", "MAGENTA", "RED", "YELLOW" };
     private HashMap<String, String> mColorMap;
@@ -83,6 +81,10 @@ public class PeersListFragment extends Fragment {
 
         mWifiDirectDevices = new HashMap<>();
 
+        mWifiManager = (WifiManager)getContext().getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+
+        mWifiManager.disconnect();
+
         mManager.removeGroup(mChannel, null);
 
         mManager.createGroup(mChannel, new WifiP2pManager.ActionListener() {
@@ -95,9 +97,9 @@ public class PeersListFragment extends Fragment {
             @Override
             public void onFailure(int i) {
                 Log.d("p2p_log", "Create group failure");
+                System.exit(1);
             }
         });
-
 
         mColorMap = new HashMap<>();
         mBluetoothDevices = new ArrayList<>();
@@ -109,6 +111,8 @@ public class PeersListFragment extends Fragment {
             protected Object doInBackground(Object[] objects) {
                 while (true) {
                     try {
+                        mWifiManager.disconnect();
+
                         Thread.sleep(10000);
 
                         if (mData == null && mWifiDirectReceiver != null) {
@@ -159,20 +163,32 @@ public class PeersListFragment extends Fragment {
                                 config.preSharedKey = String.format("\"%s\"", mWifiDirectDevices.get(peer));
                                 Log.d("p2p_log", "Trying to connect to: " + peer);
 
-                                WifiManager wifiManager = (WifiManager)getContext().getApplicationContext().getSystemService(Context.WIFI_SERVICE);
 
-                                Log.d("p2p_log", "Adding network...");
-                                int id = wifiManager.addNetwork(config);
+
+                                int id = mWifiManager.addNetwork(config);
                                 if (id == -1) {
                                     Log.d("p2p_log", "Error adding network");
                                 }
                                 else {
-                                    Log.d("p2p_log", "Added network! Id: " + id);
-
-                                    boolean connectSuccess = wifiManager.enableNetwork(id, true);
+                                    boolean connectSuccess = mWifiManager.enableNetwork(id, true);
 
                                     if (connectSuccess) {
                                         Log.d("p2p_log", "Successfully connected!");
+
+                                        DhcpInfo info = mWifiManager.getDhcpInfo();
+                                        int ip = info.serverAddress;
+
+                                        String ipString = String.format("%d.%d.%d.%d", (ip & 0xff), (ip >> 8 & 0xff), (ip >> 16 & 0xff), (ip >> 24 & 0xff));
+
+                                        InetAddress addr = InetAddress.getByName(mWifiDirectDevices.get(peer)[1]);
+
+                                        Socket clientSocket = SocketOperations.createSocket(addr);
+                                        Log.d("p2p_log", "Acting as client");
+
+                                        FileOperations.sendData(clientSocket, mWifiDirectReceiver.mDeviceName);
+                                        FileOperations.getData(clientSocket, mWifiDirectReceiver.mDeviceName);
+
+
                                     }
                                     else {
                                         Log.d("p2p_log", "Failure to connect");
@@ -228,9 +244,7 @@ public class PeersListFragment extends Fragment {
                         }
                     }
                     catch (Exception e) {
-                        for (StackTraceElement elem : e.getStackTrace()) {
-                            Log.e("p2p_log", elem.toString());
-                        }
+                        Log.e("p2p_log", e.getMessage());
                         break;
                     }
                 }
@@ -328,9 +342,12 @@ public class PeersListFragment extends Fragment {
                 String rawAddr = delimited[3];
                 String inetAddr = rawAddr.split("._presence._tcp.local.")[0];
 
+                Log.d("p2p_log", inetAddr);
+
                 String name = wifiP2pDevice.deviceName;
 
-                mWifiDirectDevices.put(ssid, passphrase);
+                String[] value = { passphrase, inetAddr };
+                mWifiDirectDevices.put(ssid, value);
             }
         };
 
@@ -343,7 +360,7 @@ public class PeersListFragment extends Fragment {
                 // the DnsTxtRecord, assuming one arrived.
                 resourceType.deviceName = mWifiDirectDevices
                         .containsKey(resourceType.deviceAddress) ? mWifiDirectDevices
-                        .get(resourceType.deviceAddress) : resourceType.deviceName;
+                        .get(resourceType.deviceAddress)[0] : resourceType.deviceName;
 
             }
         };
@@ -354,6 +371,7 @@ public class PeersListFragment extends Fragment {
         mManager.addServiceRequest(mChannel, serviceRequest, new ActionListener() {
             @Override
             public void onSuccess() {
+                Log.d("p2p_log", "Service request successfully added");
 
             }
 
@@ -366,12 +384,14 @@ public class PeersListFragment extends Fragment {
         mManager.discoverServices(mChannel, new ActionListener() {
             @Override
             public void onSuccess() {
-                // Success!
+
             }
 
             @Override
             public void onFailure(int code) {
                 // Command failed.  Check for P2P_UNSUPPORTED, ERROR, or BUSY
+                Log.d("p2p_log", "Error discovering services. Reason: " + code);
+
                 if (code == WifiP2pManager.P2P_UNSUPPORTED) {
                     Log.d(TAG, "P2P isn't supported on this device.");
                 }

@@ -26,7 +26,7 @@ public class FileOperations {
 
     public static void sendData(Socket socket, String name) throws IOException {
         if (socket == null) {
-            Log.d("p2p_log", "Can't send: socket is null");
+            Log.e("p2p_log", "Can't send: socket is null");
             return;
         }
 
@@ -47,10 +47,13 @@ public class FileOperations {
         bw.flush();
 
         Log.d("p2p_log", "Finished sending data");
-
     }
 
     public static void getData(Socket socket, String deviceName) throws IOException {
+        if (socket == null) {
+            Log.e("p2p_log", "Can't receive data: socket is null");
+            return;
+        }
 
         InputStream is = socket.getInputStream();
         InputStreamReader isr = new InputStreamReader(is);
