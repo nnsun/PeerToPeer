@@ -173,16 +173,6 @@ public class PeersListFragment extends Fragment {
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.peers_list_fragment, container, false);
 
-//        Button bluetoothDiscover = view.findViewById(R.id.bluetooth_discover_button);
-//        bluetoothDiscover.setText("Discover Bluetooth peers");
-//        bluetoothDiscover.setOnClickListener(new View.OnClickListener() {
-//            @Override
-//            public void onClick(View view) {
-//                Log.d("p2p_log", "Bluetooth discovery button pressed");
-//                BluetoothOperations.discover(mBluetoothAdapter);
-//            }
-//        });
-
         updateUI(view);
 
         return view;
