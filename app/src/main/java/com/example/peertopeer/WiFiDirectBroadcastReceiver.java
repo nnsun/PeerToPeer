@@ -80,11 +80,11 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver implements Wi
     public void onReceive(final Context context, final Intent intent) {
         String action = intent.getAction();
 
-        if (action.equals(WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION)) {
-            mManager.requestGroupInfo(mChannel, this);
-            mManager.requestConnectionInfo(mChannel, this);
-        }
-        else if (action.equals(WifiManager.NETWORK_STATE_CHANGED_ACTION)) {
+//        if (action.equals(WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION)) {
+//            mManager.requestGroupInfo(mChannel, this);
+//            mManager.requestConnectionInfo(mChannel, this);
+//        }
+        if (action.equals(WifiManager.NETWORK_STATE_CHANGED_ACTION)) {
             Log.d("p2p_log", "Network state change received");
             NetworkInfo info = intent.getParcelableExtra(WifiManager.EXTRA_NETWORK_INFO);
             if (info.isConnected()) {
@@ -101,53 +101,53 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver implements Wi
 
     @Override
     public void onGroupInfoAvailable(WifiP2pGroup wifiP2pGroup) {
-        if (wifiP2pGroup == null) {
-            mManager.requestGroupInfo(mChannel, this);
-            return;
-        }
-        mNetworkName = wifiP2pGroup.getNetworkName();
-        mPassphrase = wifiP2pGroup.getPassphrase();
-        mDeviceName = wifiP2pGroup.getOwner().deviceName;
+//        if (wifiP2pGroup == null) {
+//            mManager.requestGroupInfo(mChannel, this);
+//            return;
+//        }
+//        mNetworkName = wifiP2pGroup.getNetworkName();
+//        mPassphrase = wifiP2pGroup.getPassphrase();
+//        mDeviceName = wifiP2pGroup.getOwner().deviceName;
     }
 
     @Override
     public void onConnectionInfoAvailable(WifiP2pInfo wifiP2pInfo) {
-        if (wifiP2pInfo == null || wifiP2pInfo.groupOwnerAddress == null) {
-            mManager.requestConnectionInfo(mChannel, this);
-            return;
-        }
-
-        if (wifiP2pInfo.isGroupOwner && mNetworkName != null && !mNetworkName.isEmpty()) {
-
-            if (mBroadcasted) {
-                return;
-            }
-
-            mBroadcasted = true;
-
-            Log.d("p2p_log", "Is group owner");
-
-            String inetAddress = wifiP2pInfo.groupOwnerAddress.getHostAddress();
-            String instance = "NI:" + mNetworkName + ":" + mPassphrase + ":" + inetAddress;
-
-            Map<String, String> record = new HashMap<>();
-            record.put("available", "visible");
-
-            WifiP2pDnsSdServiceInfo service = WifiP2pDnsSdServiceInfo.newInstance(instance, "_presence._tcp", record);
-
-            mManager.addLocalService(mChannel, service, new WifiP2pManager.ActionListener() {
-                @Override
-                public void onSuccess() {
-                    Log.d("p2p_log", "Added local service");
-                }
-
-                @Override
-                public void onFailure(int i) {
-                    Log.d("p2p_log", "Error adding local service");
-                }
-            });
-
-            mManager.requestGroupInfo(mChannel, this);
-        }
+//        if (wifiP2pInfo == null || wifiP2pInfo.groupOwnerAddress == null) {
+//            mManager.requestConnectionInfo(mChannel, this);
+//            return;
+//        }
+//
+//        if (wifiP2pInfo.isGroupOwner && mNetworkName != null && !mNetworkName.isEmpty()) {
+//
+//            if (mBroadcasted) {
+//                return;
+//            }
+//
+//            mBroadcasted = true;
+//
+//            Log.d("p2p_log", "Is group owner");
+//
+//            String inetAddress = wifiP2pInfo.groupOwnerAddress.getHostAddress();
+//            String instance = "NI:" + mNetworkName + ":" + mPassphrase + ":" + inetAddress;
+//
+//            Map<String, String> record = new HashMap<>();
+//            record.put("available", "visible");
+//
+//            WifiP2pDnsSdServiceInfo service = WifiP2pDnsSdServiceInfo.newInstance(instance, "_presence._tcp", record);
+//
+//            mManager.addLocalService(mChannel, service, new WifiP2pManager.ActionListener() {
+//                @Override
+//                public void onSuccess() {
+//                    Log.d("p2p_log", "Added local service");
+//                }
+//
+//                @Override
+//                public void onFailure(int i) {
+//                    Log.d("p2p_log", "Error adding local service");
+//                }
+//            });
+//
+//            mManager.requestGroupInfo(mChannel, this);
+//        }
     }
 }

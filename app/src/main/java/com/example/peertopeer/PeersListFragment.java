@@ -46,7 +46,6 @@ public class PeersListFragment extends Fragment {
     private WifiP2pManager mManager;
     private WifiP2pManager.Channel mChannel;
     private WiFiDirectBroadcastReceiver mWifiDirectReceiver;
-    private IntentFilter mWifiDirectIntentFilter;
 
     private BluetoothBroadcastReceiver mBluetoothReceiver;
     private IntentFilter mBluetoothIntentFilter;
@@ -54,18 +53,10 @@ public class PeersListFragment extends Fragment {
     private WifiManager mWifiManager;
 
     private GossipData mData;
-    public static List<BluetoothDevice> mBluetoothDevices;
-    private static Map<String, String[]> mWifiDirectDevices;
+    public static List<String> mBluetoothDevices;
 
     private final String[] mColors = { "BLACK", "BLUE", "CYAN", "GREEN", "MAGENTA", "RED", "YELLOW" };
     private HashMap<String, String> mColorMap;
-
-    public void setWifiDirectArgs(WifiP2pManager manager, Channel channel, WiFiDirectBroadcastReceiver receiver, IntentFilter filter) {
-        mManager = manager;
-        mChannel = channel;
-        mWifiDirectReceiver = receiver;
-        mWifiDirectIntentFilter = filter;
-    }
 
     public void setBluetoothArgs(BluetoothAdapter adapter, BluetoothBroadcastReceiver receiver, IntentFilter intent) {
         mBluetoothReceiver = receiver;
@@ -77,29 +68,7 @@ public class PeersListFragment extends Fragment {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        getContext().getApplicationContext().registerReceiver(mWifiDirectReceiver, mWifiDirectIntentFilter);
-
-        mWifiDirectDevices = new HashMap<>();
-
-        mWifiManager = (WifiManager)getContext().getApplicationContext().getSystemService(Context.WIFI_SERVICE);
-
-        mWifiManager.disconnect();
-
-        mManager.removeGroup(mChannel, null);
-
-        mManager.createGroup(mChannel, new WifiP2pManager.ActionListener() {
-
-            @Override
-            public void onSuccess() {
-                Log.d("p2p_log", "Create group success");
-            }
-
-            @Override
-            public void onFailure(int i) {
-                Log.d("p2p_log", "Create group failure");
-                System.exit(1);
-            }
-        });
+        getContext().getApplicationContext().registerReceiver(mBluetoothReceiver, mBluetoothIntentFilter);
 
         mColorMap = new HashMap<>();
         mBluetoothDevices = new ArrayList<>();
@@ -111,13 +80,7 @@ public class PeersListFragment extends Fragment {
             protected Object doInBackground(Object[] objects) {
                 while (true) {
                     try {
-                        mWifiManager.disconnect();
-
                         Thread.sleep(10000);
-
-                        if (mData == null && mWifiDirectReceiver != null) {
-                            mData = GossipData.get(mWifiDirectReceiver.mDeviceName);
-                        }
 
                         Random random = new Random();
                         if (random.nextBoolean()) {
@@ -139,107 +102,48 @@ public class PeersListFragment extends Fragment {
 
                         discoverServices();
 
-                        int numPeers;
-                        int numWifiDirectPeers = mWifiDirectDevices.size();
-
-                        if (mBluetoothReceiver.mServerSocket != null) {
-                            numPeers = numWifiDirectPeers + mBluetoothDevices.size();
-                        }
-                        else {
-                            numPeers = numWifiDirectPeers;
-                        }
+                        int numPeers = mBluetoothDevices.size();
 
                         if (numPeers > 0) {
                             int randomPeer = random.nextInt(numPeers);
 
-                            Log.d("p2p_log", randomPeer + "    " + mWifiDirectDevices.size());
+                            String peer = mBluetoothDevices.get(randomPeer);
 
-                            // connecting to a Wi-Fi Direct peer
-                            if (randomPeer < numWifiDirectPeers) {
-                                String peer = new ArrayList<>(mWifiDirectDevices.keySet()).get(randomPeer);
+                            Log.d("p2p_log", "Trying to connect to " + peer);
 
-                                WifiConfiguration config = new WifiConfiguration();
-                                config.SSID = String.format("\"%s\"", peer);
-                                config.preSharedKey = String.format("\"%s\"", mWifiDirectDevices.get(peer));
-                                Log.d("p2p_log", "Trying to connect to: " + peer);
-
-
-
-                                int id = mWifiManager.addNetwork(config);
-                                if (id == -1) {
-                                    Log.d("p2p_log", "Error adding network");
-                                }
-                                else {
-                                    boolean connectSuccess = mWifiManager.enableNetwork(id, true);
-
-                                    if (connectSuccess) {
-                                        Log.d("p2p_log", "Successfully connected!");
-
-                                        DhcpInfo info = mWifiManager.getDhcpInfo();
-                                        int ip = info.serverAddress;
-
-                                        String ipString = String.format("%d.%d.%d.%d", (ip & 0xff), (ip >> 8 & 0xff), (ip >> 16 & 0xff), (ip >> 24 & 0xff));
-
-                                        InetAddress addr = InetAddress.getByName(mWifiDirectDevices.get(peer)[1]);
-
-                                        Socket clientSocket = SocketOperations.createSocket(addr);
-                                        Log.d("p2p_log", "Acting as client");
-
-                                        FileOperations.sendData(clientSocket, mWifiDirectReceiver.mDeviceName);
-                                        FileOperations.getData(clientSocket, mWifiDirectReceiver.mDeviceName);
-
-
-                                    }
-                                    else {
-                                        Log.d("p2p_log", "Failure to connect");
-                                    }
-
-                                }
+                            BluetoothSocket mmSocket = null;
+                            try {
+                                // Get a BluetoothSocket to connect with the given BluetoothDevice.
+                                // MY_UUID is the app's UUID string, also used in the server code.
+                                mmSocket = peer.createRfcommSocketToServiceRecord(BluetoothOperations.MY_UUID);
+                            }
+                            catch (IOException e) {
+                                Log.e("p2p_log", "Socket's create() method failed", e);
                             }
 
-                            else if (!mBluetoothAdapter.isDiscovering()) {
-                                final BluetoothDevice peer = mBluetoothDevices.get(randomPeer - numWifiDirectPeers);
+                            try {
+                                // Connect to the remote device through the socket. This call blocks
+                                // until it succeeds or throws an exception.
+                                mmSocket.connect();
+                                Log.d("p2p_log", "Successfully connected");
 
-                                Log.d("p2p_log", "Trying to connect to " + peer.getName());
+                                FileOperations.bluetoothSendData(mmSocket, mBluetoothAdapter.getAddress());
+                                FileOperations.bluetoothGetData(mmSocket, mBluetoothAdapter.getAddress());
 
-                                BluetoothSocket mmSocket = null;
+
+                            }
+                            catch (IOException connectException) {
+                                // Unable to connect; close the socket and return.
+                                Log.d("p2p_log", "Bluetooth socket connect failed, trying fallback...");
+
                                 try {
-                                    // Get a BluetoothSocket to connect with the given BluetoothDevice.
-                                    // MY_UUID is the app's UUID string, also used in the server code.
-                                    mmSocket = peer.createRfcommSocketToServiceRecord(BluetoothOperations.MY_UUID);
-                                }
-                                catch (IOException e) {
-                                    Log.e("p2p_log", "Socket's create() method failed", e);
-                                }
-
-
-                                mBluetoothAdapter.cancelDiscovery();
-                                try {
-                                    // Connect to the remote device through the socket. This call blocks
-                                    // until it succeeds or throws an exception.
+                                    mmSocket = (BluetoothSocket) peer.getClass().getMethod("createRfcommSocket", new Class[]{int.class}).invoke(peer, 1);
                                     mmSocket.connect();
-                                    Log.d("p2p_log", "Successfully connected");
-
-                                    FileOperations.bluetoothSendData(mmSocket, mBluetoothAdapter.getAddress());
-                                    FileOperations.bluetoothGetData(mmSocket, mBluetoothAdapter.getAddress());
-
-
-                                }
-                                catch (IOException connectException) {
-                                    // Unable to connect; close the socket and return.
-                                    Log.d("p2p_log", "Bluetooth socket connect failed, trying fallback...");
-
-                                    try {
-                                        mmSocket = (BluetoothSocket)peer.getClass().getMethod("createRfcommSocket", new Class[] {int.class}).invoke(peer, 1);
-                                        mmSocket.connect();
-                                    }
-                                    catch (Exception e) {
-                                        Log.e("p2p_log", "Fallback Bluetooth connect failed");
-                                        Log.e("p2p_log", e.getMessage());
-                                    }
+                                } catch (Exception e) {
+                                    Log.e("p2p_log", "Fallback Bluetooth connect failed");
+                                    Log.e("p2p_log", e.getMessage());
                                 }
                             }
-
 
                         }
                     }
@@ -277,7 +181,6 @@ public class PeersListFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
-        getContext().getApplicationContext().registerReceiver(mWifiDirectReceiver, mWifiDirectIntentFilter);
         getContext().getApplicationContext().registerReceiver(mBluetoothReceiver, mBluetoothIntentFilter);
     }
 
@@ -299,8 +202,6 @@ public class PeersListFragment extends Fragment {
         try {
             getActivity().unregisterReceiver(mWifiDirectReceiver);
             getActivity().unregisterReceiver(mBluetoothReceiver);
-
-            mManager.removeGroup(mChannel, null);
         }
         catch (Exception e) {
 
@@ -336,18 +237,9 @@ public class PeersListFragment extends Fragment {
             @Override
             public void onDnsSdTxtRecordAvailable(String s, Map<String, String> map, WifiP2pDevice wifiP2pDevice) {
                 Log.d("p2p_log", "Found a device");
-                String[] delimited = s.split(":");
-                String ssid = delimited[1];
-                String passphrase = delimited[2];
-                String rawAddr = delimited[3];
-                String inetAddr = rawAddr.split("._presence._tcp.local.")[0];
-
-                Log.d("p2p_log", inetAddr);
 
                 String name = wifiP2pDevice.deviceName;
 
-                String[] value = { passphrase, inetAddr };
-                mWifiDirectDevices.put(ssid, value);
             }
         };
 

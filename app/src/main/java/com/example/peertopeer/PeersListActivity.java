@@ -36,14 +36,6 @@ public class PeersListActivity extends SingleFragmentActivity {
         mChannel = mManager.initialize(this, getMainLooper(), null);
         mWifiDirectReceiver = new WiFiDirectBroadcastReceiver(mManager, mChannel, this);
 
-        mWifiDirectIntentFilter = new IntentFilter();
-        mWifiDirectIntentFilter.addAction(WifiP2pManager.WIFI_P2P_STATE_CHANGED_ACTION);
-        mWifiDirectIntentFilter.addAction(WifiP2pManager.WIFI_P2P_PEERS_CHANGED_ACTION);
-        mWifiDirectIntentFilter.addAction(WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION);
-        mWifiDirectIntentFilter.addAction(WifiP2pManager.WIFI_P2P_THIS_DEVICE_CHANGED_ACTION);
-        mWifiDirectIntentFilter.addAction(WifiManager.SUPPLICANT_CONNECTION_CHANGE_ACTION);
-        mWifiDirectIntentFilter.addAction(WifiManager.NETWORK_STATE_CHANGED_ACTION);
-
         mFragment = new PeersListFragment();
 
         mBluetoothIntentFilter = new IntentFilter();
@@ -65,8 +57,6 @@ public class PeersListActivity extends SingleFragmentActivity {
         else {
             Log.e("p2p_log", "Device does not support Bluetooth");
         }
-
-        mFragment.setWifiDirectArgs(mManager, mChannel, mWifiDirectReceiver, mWifiDirectIntentFilter);
         return mFragment;
     }
 
