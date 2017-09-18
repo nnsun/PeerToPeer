@@ -57,6 +57,8 @@ public class PeersListActivity extends SingleFragmentActivity {
         else {
             Log.e("p2p_log", "Device does not support Bluetooth");
         }
+
+        mFragment.setWifiDirectArgs(mManager, mChannel, mWifiDirectReceiver);
         return mFragment;
     }
 

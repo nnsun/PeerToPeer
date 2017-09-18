@@ -64,6 +64,12 @@ public class PeersListFragment extends Fragment {
         mBluetoothAdapter = adapter;
     }
 
+    public void setWifiDirectArgs(WifiP2pManager manager, Channel channel, WiFiDirectBroadcastReceiver receiver) {
+        mManager = manager;
+        mChannel = channel;
+        mWifiDirectReceiver = receiver;
+    }
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -74,6 +80,8 @@ public class PeersListFragment extends Fragment {
         mBluetoothDevices = new ArrayList<>();
         BluetoothOperations.enableDiscoverability(getContext());
 
+        mWifiDirectReceiver.advertiseService(mBluetoothAdapter.getAddress());
+
         AsyncTask timer = new AsyncTask() {
 
             @Override
@@ -82,9 +90,13 @@ public class PeersListFragment extends Fragment {
                     try {
                         Thread.sleep(10000);
 
+                        if (mData == null) {
+                            mData =GossipData.get(mBluetoothAdapter.getAddress());
+                        }
+
                         Random random = new Random();
                         if (random.nextBoolean()) {
-                            mData.add(random.nextInt(100) + 1, mWifiDirectReceiver.mDeviceName);
+                            mData.add(random.nextInt(100) + 1, mBluetoothAdapter.getAddress());
                         }
 
                         if (getView() != null) {
@@ -94,10 +106,6 @@ public class PeersListFragment extends Fragment {
                                     updateUI(getView());
                                 }
                             });
-                        }
-
-                        if (mWifiDirectReceiver.mClientSocket != null && !mWifiDirectReceiver.mClientSocket.isClosed()) {
-                            mWifiDirectReceiver.mClientSocket.close();
                         }
 
                         discoverServices();
@@ -111,11 +119,13 @@ public class PeersListFragment extends Fragment {
 
                             Log.d("p2p_log", "Trying to connect to " + peer);
 
-                            BluetoothSocket mmSocket = null;
+                            BluetoothDevice device = mBluetoothAdapter.getRemoteDevice(peer);
+
+                            BluetoothSocket socket = null;
                             try {
                                 // Get a BluetoothSocket to connect with the given BluetoothDevice.
                                 // MY_UUID is the app's UUID string, also used in the server code.
-                                mmSocket = peer.createRfcommSocketToServiceRecord(BluetoothOperations.MY_UUID);
+                                socket = device.createInsecureRfcommSocketToServiceRecord(BluetoothOperations.MY_UUID);
                             }
                             catch (IOException e) {
                                 Log.e("p2p_log", "Socket's create() method failed", e);
@@ -124,11 +134,11 @@ public class PeersListFragment extends Fragment {
                             try {
                                 // Connect to the remote device through the socket. This call blocks
                                 // until it succeeds or throws an exception.
-                                mmSocket.connect();
+                                socket.connect();
                                 Log.d("p2p_log", "Successfully connected");
 
-                                FileOperations.bluetoothSendData(mmSocket, mBluetoothAdapter.getAddress());
-                                FileOperations.bluetoothGetData(mmSocket, mBluetoothAdapter.getAddress());
+                                FileOperations.bluetoothSendData(socket, mBluetoothAdapter.getAddress());
+                                FileOperations.bluetoothGetData(socket, mBluetoothAdapter.getAddress());
 
 
                             }
@@ -137,8 +147,8 @@ public class PeersListFragment extends Fragment {
                                 Log.d("p2p_log", "Bluetooth socket connect failed, trying fallback...");
 
                                 try {
-                                    mmSocket = (BluetoothSocket) peer.getClass().getMethod("createRfcommSocket", new Class[]{int.class}).invoke(peer, 1);
-                                    mmSocket.connect();
+                                    socket = (BluetoothSocket) peer.getClass().getMethod("createRfcommSocket", new Class[]{int.class}).invoke(peer, 1);
+                                    socket.connect();
                                 } catch (Exception e) {
                                     Log.e("p2p_log", "Fallback Bluetooth connect failed");
                                     Log.e("p2p_log", e.getMessage());
@@ -147,8 +157,8 @@ public class PeersListFragment extends Fragment {
 
                         }
                     }
-                    catch (Exception e) {
-                        Log.e("p2p_log", e.getMessage());
+                    catch (InterruptedException e) {
+                        Log.e("p2p_log", e.toString());
                         break;
                     }
                 }
@@ -163,15 +173,15 @@ public class PeersListFragment extends Fragment {
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.peers_list_fragment, container, false);
 
-        Button bluetoothDiscover = view.findViewById(R.id.bluetooth_discover_button);
-        bluetoothDiscover.setText("Discover Bluetooth peers");
-        bluetoothDiscover.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                Log.d("p2p_log", "Bluetooth discovery button pressed");
-                BluetoothOperations.discover(mBluetoothAdapter);
-            }
-        });
+//        Button bluetoothDiscover = view.findViewById(R.id.bluetooth_discover_button);
+//        bluetoothDiscover.setText("Discover Bluetooth peers");
+//        bluetoothDiscover.setOnClickListener(new View.OnClickListener() {
+//            @Override
+//            public void onClick(View view) {
+//                Log.d("p2p_log", "Bluetooth discovery button pressed");
+//                BluetoothOperations.discover(mBluetoothAdapter);
+//            }
+//        });
 
         updateUI(view);
 
@@ -239,21 +249,18 @@ public class PeersListFragment extends Fragment {
                 Log.d("p2p_log", "Found a device");
 
                 String name = wifiP2pDevice.deviceName;
-
             }
         };
 
         DnsSdServiceResponseListener servListener = new DnsSdServiceResponseListener() {
             @Override
-            public void onDnsSdServiceAvailable(String instanceName, String registrationType,
-                                                WifiP2pDevice resourceType) {
+            public void onDnsSdServiceAvailable(String address, String serviceType, WifiP2pDevice device) {
+                if (serviceType.startsWith(WiFiDirectBroadcastReceiver.SERVICE_TYPE)) {
+                    if (!mBluetoothDevices.contains(address)) {
+                        mBluetoothDevices.add(address);
+                    }
 
-                // Update the device name with the human-friendly version from
-                // the DnsTxtRecord, assuming one arrived.
-                resourceType.deviceName = mWifiDirectDevices
-                        .containsKey(resourceType.deviceAddress) ? mWifiDirectDevices
-                        .get(resourceType.deviceAddress)[0] : resourceType.deviceName;
-
+                }
             }
         };
 

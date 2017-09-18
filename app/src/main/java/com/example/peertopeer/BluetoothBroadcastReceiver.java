@@ -73,15 +73,15 @@ public class BluetoothBroadcastReceiver extends BroadcastReceiver {
     public void onReceive(Context context, Intent intent) {
         String action = intent.getAction();
         Log.d("p2p_log", "In Broadcast receiver with action: " + action);
-        if (BluetoothDevice.ACTION_FOUND.equals(action)) {
-
-            BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-
-            String deviceName = device.getName();
-            Log.d("p2p_log", "Available to connect with " + deviceName);
-
-            PeersListFragment.mBluetoothDevices.add(device);
-        }
+//        if (BluetoothDevice.ACTION_FOUND.equals(action)) {
+//
+//            BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+//
+//            String deviceName = device.getName();
+//            Log.d("p2p_log", "Available to connect with " + deviceName);
+//
+//            PeersListFragment.mBluetoothDevices.add(device);
+//        }
 
     }
 }
