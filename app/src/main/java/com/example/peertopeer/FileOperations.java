@@ -21,8 +21,12 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.net.Socket;
+import java.util.UUID;
 
 public class FileOperations {
+
+    public static final UUID MY_UUID = UUID.fromString("fa87c0d0-afac-11de-8a39-0800200c9a66");
+
 
     public static void sendData(Socket socket, String name) throws IOException {
         if (socket == null) {
