@@ -24,6 +24,7 @@ public class ServiceBase {
     }
 
     public void advertiseService(String address) {
+        Log.d("p2p_log", "Bluetooth MAC address: " + address);
         HashMap<String, String> record = new HashMap<>();
         record.put("available", "visible");
 

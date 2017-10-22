@@ -20,12 +20,16 @@ import android.view.ViewGroup;
 import android.widget.TextView;
 
 import java.io.IOException;
+import java.net.NetworkInterface;
+import java.net.SocketException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.TreeMap;
+import java.sql.Timestamp;
 
 import static android.content.ContentValues.TAG;
 
@@ -38,6 +42,7 @@ public class PeersListFragment extends Fragment {
     private BluetoothAdapter mBluetoothAdapter;
     private BluetoothListener mBluetoothListener;
 
+    private String mBluetoothAddress;
     private GossipData mData;
     public static List<String> mBluetoothDevices;
 
@@ -62,7 +67,39 @@ public class PeersListFragment extends Fragment {
         mColorMap = new HashMap<>();
         mBluetoothDevices = new ArrayList<>();
 
-        mWifiService.advertiseService(mBluetoothAdapter.getAddress());
+        mBluetoothAddress = mBluetoothAdapter.getAddress();
+        if (mBluetoothAddress.equals("02:00:00:00:00:00")) {
+            List<NetworkInterface> all = null;
+            try {
+                all = Collections.list(NetworkInterface.getNetworkInterfaces());
+            } catch (SocketException e) {
+                e.printStackTrace();
+            }
+            for (NetworkInterface nif : all) {
+
+                byte[] macBytes = new byte[0];
+                try {
+                    macBytes = nif.getHardwareAddress();
+                } catch (SocketException e) {
+                    e.printStackTrace();
+                }
+                if (macBytes == null) {
+                    continue;
+                }
+
+                StringBuilder res1 = new StringBuilder();
+                for (byte b : macBytes) {
+                    res1.append(Integer.toHexString(b & 0xFF) + ":");
+                }
+
+                if (res1.length() > 0) {
+                    res1.deleteCharAt(res1.length() - 1);
+                }
+                Log.d("p2p_log", nif.getName() + " " + res1.toString());
+            }
+        }
+
+        mWifiService.advertiseService(mBluetoothAddress);
 
         mBluetoothListener.mBluetoothServer.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
 
@@ -74,12 +111,12 @@ public class PeersListFragment extends Fragment {
                         Thread.sleep(10000);
 
                         if (mData == null) {
-                            mData = GossipData.get(mBluetoothAdapter.getAddress());
+                            mData = GossipData.get(mBluetoothAddress);
                         }
 
                         Random random = new Random();
                         if (random.nextBoolean()) {
-                            mData.add(random.nextInt(100) + 1, mBluetoothAdapter.getAddress());
+                            mData.add(random.nextInt(100) + 1, mBluetoothAddress);
                         }
 
                         if (getView() != null) {
@@ -100,13 +137,16 @@ public class PeersListFragment extends Fragment {
 
                             Log.d("p2p_log", "Trying to connect to " + peer);
 
-                            BluetoothDevice device = mBluetoothAdapter.getRemoteDevice(peer);
+                            BluetoothDevice device = mBluetoothAdapter.getRemoteDevice("E4:58:B8:E0:6D:15");
 
                             BluetoothSocket socket = null;
+
+                            long start = System.currentTimeMillis();
                             try {
                                 // Get a BluetoothSocket to connect with the given BluetoothDevice.
                                 // MY_UUID is the app's UUID string, also used in the server code.
-                                socket = device.createInsecureRfcommSocketToServiceRecord(FileOperations.MY_UUID);
+                                socket = device.createInsecureRfcommSocketToServiceRecord(BluetoothListener.MY_UUID);
+
                             }
                             catch (IOException e) {
                                 Log.e("p2p_log", "Socket's create() method failed", e);
@@ -116,10 +156,13 @@ public class PeersListFragment extends Fragment {
                                 // Connect to the remote device through the socket. This call blocks
                                 // until it succeeds or throws an exception.
                                 socket.connect();
-                                Log.d("p2p_log", "Successfully connected");
+                                Log.d("p2p_log", "Successfully connected in " + (System.currentTimeMillis() - start) + " milliseconds");
 
-                                FileOperations.bluetoothSendData(socket, mBluetoothAdapter.getAddress());
-                                FileOperations.bluetoothGetData(socket, mBluetoothAdapter.getAddress());
+                                FileOperations.bluetoothSendData(socket, mBluetoothAddress);
+//                                Log.d("p2p_log", "Successfully sent in " + (System.currentTimeMillis() - start) + " milliseconds");
+
+                                FileOperations.bluetoothGetData(socket, mBluetoothAddress);
+//                                Log.d("p2p_log", "Successfully received in " + (System.currentTimeMillis() - start) + " milliseconds");
                             }
                             catch (IOException connectException) {
                                 // Unable to connect
@@ -177,7 +220,6 @@ public class PeersListFragment extends Fragment {
         dataView.setText(Html.fromHtml(text), TextView.BufferType.SPANNABLE);
     }
 
-
     private void discoverServices() {
         Log.d("p2p_log", "Discovering services...");
 
@@ -226,6 +268,35 @@ public class PeersListFragment extends Fragment {
                 }
             }
         });
+    }
+
+    private String getMacAddress() {
+        List<NetworkInterface> all;
+        try {
+            all = Collections.list(NetworkInterface.getNetworkInterfaces());
+            for (NetworkInterface nif : all) {
+                if (!nif.getName().equalsIgnoreCase("wlan0")) continue;
+
+                byte[] macBytes = nif.getHardwareAddress();
+                if (macBytes == null) {
+                    return "";
+                }
+
+                StringBuilder res1 = new StringBuilder();
+                for (byte b : macBytes) {
+                    res1.append(Integer.toHexString(b & 0xFF) + ":");
+                }
+
+                if (res1.length() > 0) {
+                    res1.deleteCharAt(res1.length() - 1);
+                }
+                return res1.toString();
+            }
+        }
+        catch(Exception e) {
+
+        }
+        return "02:00:00:00:00:00";
     }
 
 }
