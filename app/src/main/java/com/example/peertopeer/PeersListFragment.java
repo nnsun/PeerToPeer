@@ -19,6 +19,9 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 
+import com.google.android.gms.nearby.Nearby;
+import com.google.android.gms.nearby.connection.Connections;
+
 import java.io.IOException;
 import java.net.NetworkInterface;
 import java.net.SocketException;
@@ -29,7 +32,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.TreeMap;
-import java.sql.Timestamp;
+
+
 
 import static android.content.ContentValues.TAG;
 
