@@ -11,6 +11,8 @@ import android.net.wifi.p2p.WifiP2pManager.DnsSdServiceResponseListener;
 import android.net.wifi.p2p.nsd.WifiP2pDnsSdServiceRequest;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
 import android.text.Html;
 import android.util.Log;
@@ -19,8 +21,20 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.common.api.ResultCallback;
+import com.google.android.gms.common.api.Status;
 import com.google.android.gms.nearby.Nearby;
+import com.google.android.gms.nearby.connection.ConnectionInfo;
+import com.google.android.gms.nearby.connection.ConnectionLifecycleCallback;
+import com.google.android.gms.nearby.connection.ConnectionResolution;
 import com.google.android.gms.nearby.connection.Connections;
+import com.google.android.gms.nearby.connection.ConnectionsStatusCodes;
+import com.google.android.gms.nearby.connection.DiscoveredEndpointInfo;
+import com.google.android.gms.nearby.connection.DiscoveryOptions;
+import com.google.android.gms.nearby.connection.EndpointDiscoveryCallback;
+import com.google.android.gms.nearby.connection.Strategy;
 
 import java.io.IOException;
 import java.net.NetworkInterface;
@@ -32,10 +46,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.TreeMap;
-
-
-
-import static android.content.ContentValues.TAG;
 
 
 public class PeersListFragment extends Fragment {
@@ -102,8 +112,6 @@ public class PeersListFragment extends Fragment {
                 Log.d("p2p_log", nif.getName() + " " + res1.toString());
             }
         }
-
-        mWifiService.advertiseService(mBluetoothAddress);
 
         mBluetoothListener.mBluetoothServer.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
 
@@ -191,7 +199,6 @@ public class PeersListFragment extends Fragment {
         };
 
         timer.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
-        discoverServices();
     }
 
     @Override
@@ -222,85 +229,6 @@ public class PeersListFragment extends Fragment {
             text += "<font color=" + mColorMap.get(name) + ">" + num + "</font>\t";
         }
         dataView.setText(Html.fromHtml(text), TextView.BufferType.SPANNABLE);
-    }
-
-    private void discoverServices() {
-        Log.d("p2p_log", "Discovering services...");
-
-        DnsSdServiceResponseListener servListener = new DnsSdServiceResponseListener() {
-            @Override
-            public void onDnsSdServiceAvailable(String address, String serviceType, WifiP2pDevice device) {
-                Log.d("p2p_log", "Found a device: " + address);
-                if (serviceType.startsWith(ServiceBase.SERVICE_TYPE)) {
-                    if (!mBluetoothDevices.contains(address)) {
-                        mBluetoothDevices.add(address);
-                    }
-
-                }
-            }
-        };
-
-        mManager.setDnsSdResponseListeners(mChannel, servListener, null);
-
-        WifiP2pDnsSdServiceRequest serviceRequest = WifiP2pDnsSdServiceRequest.newInstance();
-        mManager.addServiceRequest(mChannel, serviceRequest, new ActionListener() {
-            @Override
-            public void onSuccess() {
-                Log.d("p2p_log", "Service request successfully added");
-
-            }
-
-            @Override
-            public void onFailure(int i) {
-                Log.d("p2p_log", "Service request add failed");
-            }
-        });
-
-        mManager.discoverServices(mChannel, new ActionListener() {
-            @Override
-            public void onSuccess() {
-
-            }
-
-            @Override
-            public void onFailure(int code) {
-                // Command failed.  Check for P2P_UNSUPPORTED, ERROR, or BUSY
-                Log.d("p2p_log", "Error discovering services. Reason: " + code);
-
-                if (code == WifiP2pManager.P2P_UNSUPPORTED) {
-                    Log.d(TAG, "P2P isn't supported on this device.");
-                }
-            }
-        });
-    }
-
-    private String getMacAddress() {
-        List<NetworkInterface> all;
-        try {
-            all = Collections.list(NetworkInterface.getNetworkInterfaces());
-            for (NetworkInterface nif : all) {
-                if (!nif.getName().equalsIgnoreCase("wlan0")) continue;
-
-                byte[] macBytes = nif.getHardwareAddress();
-                if (macBytes == null) {
-                    return "";
-                }
-
-                StringBuilder res1 = new StringBuilder();
-                for (byte b : macBytes) {
-                    res1.append(Integer.toHexString(b & 0xFF) + ":");
-                }
-
-                if (res1.length() > 0) {
-                    res1.deleteCharAt(res1.length() - 1);
-                }
-                return res1.toString();
-            }
-        }
-        catch(Exception e) {
-
-        }
-        return "02:00:00:00:00:00";
     }
 
 }
