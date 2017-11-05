@@ -1,10 +1,7 @@
 package com.example.peertopeer;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
-import android.bluetooth.BluetoothAdapter;
-import android.content.Intent;
-import android.net.wifi.p2p.WifiP2pManager;
-import android.net.wifi.p2p.WifiP2pManager.Channel;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
@@ -15,6 +12,7 @@ import android.widget.TextView;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.common.api.ResultCallback;
 import com.google.android.gms.nearby.Nearby;
 
 import java.util.ArrayList;
@@ -23,42 +21,50 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.TreeMap;
+import java.util.UUID;
 
 
 public class PeersListActivity extends Activity implements GoogleApiClient.ConnectionCallbacks,
         GoogleApiClient.OnConnectionFailedListener {
 
-    private BluetoothAdapter mBluetoothAdapter;
     private final static int REQUEST_ENABLE_BT = 1;
 
     public GoogleApiClient mGoogleApiClient;
-
     private ServiceBase mServiceBase;
 
     private String mDeviceName;
+    private String mConnectedDevice;
 
     private TreeMap<Integer, String> mData;
 
-    public static List<String> mBluetoothDevices;
+    public static List<String> mDevices;
 
     private final String[] mColors = { "BLACK", "BLUE", "CYAN", "GREEN", "MAGENTA", "RED", "YELLOW" };
     private HashMap<String, String> mColorMap;
+
+    public GoogleApiClient getGoogleApiClient() {
+        return mGoogleApiClient;
+    }
+
+    public void setConnectedDevice(String device) {
+        mConnectedDevice = device;
+    }
+
+    public TreeMap<Integer, String> getData() {
+        return mData;
+    }
+
+    public List<String> getDevices() {
+        return mDevices;
+    }
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-        if (mBluetoothAdapter != null) {
-            if (!mBluetoothAdapter.isEnabled()) {
-                Log.d("p2p_log", "Bluetooth is not enabled");
-                Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-                startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
-            }
-        }
+        mDeviceName = UUID.randomUUID().toString();
 
-        mDeviceName = mBluetoothAdapter.getName();
-
+        mData = new TreeMap<>();
         Random random = new Random();
         for (int i = 0; i < 1; i++) {
             mData.put(random.nextInt(100) + 1, mDeviceName);
@@ -66,21 +72,17 @@ public class PeersListActivity extends Activity implements GoogleApiClient.Conne
 
         mGoogleApiClient = new GoogleApiClient.Builder(this).addConnectionCallbacks(this).
                 addOnConnectionFailedListener(this).addApi(Nearby.CONNECTIONS_API).build();
-
         mGoogleApiClient.connect();
+        mDevices = new ArrayList<>();
+        mColorMap = new HashMap<>();
 
-        mServiceBase = new ServiceBase(mGoogleApiClient, mBluetoothDevices, mDeviceName, mData);
+        mConnectedDevice = "";
+
+        mServiceBase = new ServiceBase(this);
 
         setContentView(R.layout.main_activity);
 
-        mColorMap = new HashMap<>();
-        mBluetoothDevices = new ArrayList<>();
-
-//        mBluetoothListener.mBluetoothServer.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
-
-        Log.d("p2p_log", "Is connecting: " + mGoogleApiClient.isConnecting());
-
-        AsyncTask timer = new AsyncTask() {
+        @SuppressLint("StaticFieldLeak") AsyncTask timer = new AsyncTask() {
             @Override
             protected Object doInBackground(Object[] objects) {
                 while (true) {
@@ -92,6 +94,9 @@ public class PeersListActivity extends Activity implements GoogleApiClient.Conne
                             mData.put(random.nextInt(100) + 1, mDeviceName);
                         }
 
+                        if (!mConnectedDevice.isEmpty()) {
+                            Nearby.Connections.disconnectFromEndpoint(mGoogleApiClient, mConnectedDevice);
+                        }
 
                         runOnUiThread(new Runnable() {
                             @Override
@@ -100,19 +105,23 @@ public class PeersListActivity extends Activity implements GoogleApiClient.Conne
                             }
                         });
 
-                        int numPeers = mBluetoothDevices.size();
+                        int numPeers = mDevices.size();
 
                         if (numPeers > 0) {
                             int randomPeer = random.nextInt(numPeers);
 
-                            String peer = mBluetoothDevices.get(randomPeer);
+                            String peer = mDevices.get(randomPeer);
 
-                            StringBuilder builder = new StringBuilder(512);
-                            for (int num : mData.navigableKeySet()) {
-                                builder.append(num + " " + mData.get(num) + "\n");
-                            }
-                            byte[] messageBytes = builder.toString().getBytes();
-                            FileOperations.nearbySend(mGoogleApiClient, messageBytes, peer);
+                            Nearby.Connections.requestConnection(mGoogleApiClient, peer, peer, mServiceBase)
+                                    .setResultCallback(new ResultCallback<com.google.android.gms.common.api.Status>() {
+                                @Override
+                                public void onResult(@NonNull com.google.android.gms.common.api.Status status) {
+                                    if (status.isSuccess()) {
+                                        Log.d("p2p_log", "Successfully connected");
+                                    }
+                                }
+                            });
+
                         }
                     }
                     catch (InterruptedException e) {
@@ -139,6 +148,8 @@ public class PeersListActivity extends Activity implements GoogleApiClient.Conne
     @Override
     public void onStop() {
         super.onStop();
+        Nearby.Connections.stopAdvertising(mGoogleApiClient);
+        Nearby.Connections.stopDiscovery(mGoogleApiClient);
         if (mGoogleApiClient != null && mGoogleApiClient.isConnected()) {
             mGoogleApiClient.disconnect();
         }
