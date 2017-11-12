@@ -22,8 +22,6 @@ import com.google.android.gms.nearby.connection.PayloadCallback;
 import com.google.android.gms.nearby.connection.PayloadTransferUpdate;
 import com.google.android.gms.nearby.connection.Strategy;
 
-import java.util.List;
-import java.util.TreeMap;
 
 public class ServiceBase extends ConnectionLifecycleCallback {
     private static final String SERVICE_ID = "PeerToPeer";
@@ -45,6 +43,7 @@ public class ServiceBase extends ConnectionLifecycleCallback {
         @Override
         public void onEndpointLost(String endpointId) {
             // A previously discovered endpoint has gone away.
+            Log.d("p2p_log", "Endpoint lost: " + endpointId);
             if (mActivity.getDevices().contains(endpointId)) {
                 mActivity.getDevices().remove(endpointId);
             }
@@ -52,7 +51,6 @@ public class ServiceBase extends ConnectionLifecycleCallback {
     };
 
     public void startAdvertising(GoogleApiClient client, String name) {
-        Log.d("p2p_log", "Device name: " + name);
         Nearby.Connections.startAdvertising(client, name, SERVICE_ID, this,
                 new AdvertisingOptions(Strategy.P2P_CLUSTER)).setResultCallback(
             new ResultCallback<Connections.StartAdvertisingResult>() {
@@ -133,5 +131,6 @@ public class ServiceBase extends ConnectionLifecycleCallback {
         // We've been disconnected from this endpoint. No more data can be
         // sent or received.
         Log.d("p2p_log", "Disconnected");
+        mActivity.removeConnectedDevice(endpointId);
     }
 }

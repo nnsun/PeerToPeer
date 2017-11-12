@@ -27,8 +27,6 @@ import java.util.UUID;
 public class PeersListActivity extends Activity implements GoogleApiClient.ConnectionCallbacks,
         GoogleApiClient.OnConnectionFailedListener {
 
-    private final static int REQUEST_ENABLE_BT = 1;
-
     public GoogleApiClient mGoogleApiClient;
     private ServiceBase mServiceBase;
 
@@ -48,6 +46,12 @@ public class PeersListActivity extends Activity implements GoogleApiClient.Conne
 
     public void setConnectedDevice(String device) {
         mConnectedDevice = device;
+    }
+
+    public void removeConnectedDevice(String device) {
+        if (mConnectedDevice.equals(device)) {
+            mConnectedDevice = "";
+        }
     }
 
     public TreeMap<Integer, String> getData() {
@@ -87,15 +91,16 @@ public class PeersListActivity extends Activity implements GoogleApiClient.Conne
             protected Object doInBackground(Object[] objects) {
                 while (true) {
                     try {
-                        Thread.sleep(10000);
-
                         Random random = new Random();
-                        if (random.nextBoolean()) {
-                            mData.put(random.nextInt(100) + 1, mDeviceName);
-                        }
+
+                        Thread.sleep(random.nextInt(10000) + 10000);
 
                         if (!mConnectedDevice.isEmpty()) {
                             Nearby.Connections.disconnectFromEndpoint(mGoogleApiClient, mConnectedDevice);
+                        }
+
+                        if (random.nextBoolean()) {
+                            mData.put(random.nextInt(100) + 1, mDeviceName);
                         }
 
                         runOnUiThread(new Runnable() {
@@ -112,12 +117,20 @@ public class PeersListActivity extends Activity implements GoogleApiClient.Conne
 
                             String peer = mDevices.get(randomPeer);
 
+                            Log.d("p2p_log", "Attempting to connect to: " + peer);
+
                             Nearby.Connections.requestConnection(mGoogleApiClient, peer, peer, mServiceBase)
                                     .setResultCallback(new ResultCallback<com.google.android.gms.common.api.Status>() {
                                 @Override
                                 public void onResult(@NonNull com.google.android.gms.common.api.Status status) {
                                     if (status.isSuccess()) {
                                         Log.d("p2p_log", "Successfully connected");
+                                    }
+                                    else {
+                                        Log.d("p2p_log", "Failed to connect, error code: " + status.getStatusCode());
+                                        if (!mConnectedDevice.isEmpty()) {
+                                            Nearby.Connections.disconnectFromEndpoint(mGoogleApiClient, mConnectedDevice);
+                                        }
                                     }
                                 }
                             });
@@ -158,7 +171,6 @@ public class PeersListActivity extends Activity implements GoogleApiClient.Conne
     @Override
     public void onConnected(@Nullable Bundle bundle) {
         Log.d("p2p_log", "GoogleApiClient connected");
-
         mServiceBase.startAdvertising(mGoogleApiClient, mDeviceName);
         mServiceBase.startDiscovery(mGoogleApiClient);
     }
