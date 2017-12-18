@@ -1,6 +1,5 @@
 package com.example.peertopeer;
 
-import android.app.Activity;
 import android.support.annotation.NonNull;
 import android.util.Log;
 
