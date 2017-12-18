@@ -4,8 +4,6 @@ import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
 import android.text.Html;
 import android.util.Log;
 import android.widget.TextView;
@@ -122,7 +120,7 @@ public class PeersListActivity extends Activity implements GoogleApiClient.Conne
                             Nearby.Connections.requestConnection(mGoogleApiClient, peer, peer, mServiceBase)
                                     .setResultCallback(new ResultCallback<com.google.android.gms.common.api.Status>() {
                                 @Override
-                                public void onResult(@NonNull com.google.android.gms.common.api.Status status) {
+                                public void onResult(com.google.android.gms.common.api.Status status) {
                                     if (status.isSuccess()) {
                                         Log.d("p2p_log", "Successfully connected");
                                     }
@@ -169,7 +167,7 @@ public class PeersListActivity extends Activity implements GoogleApiClient.Conne
     }
 
     @Override
-    public void onConnected(@Nullable Bundle bundle) {
+    public void onConnected(Bundle bundle) {
         Log.d("p2p_log", "GoogleApiClient connected");
         mServiceBase.startAdvertising(mGoogleApiClient, mDeviceName);
         mServiceBase.startDiscovery(mGoogleApiClient);
@@ -181,7 +179,7 @@ public class PeersListActivity extends Activity implements GoogleApiClient.Conne
     }
 
     @Override
-    public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
+    public void onConnectionFailed(ConnectionResult connectionResult) {
         Log.d("p2p_log", "Connection failed: " + connectionResult.getErrorCode() + "  " + connectionResult.getErrorMessage());
         mGoogleApiClient.reconnect();
     }
